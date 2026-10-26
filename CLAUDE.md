@@ -5,3 +5,5 @@
 - Before a change touching more than 3 files, show a short plan and wait for my OK.
 - Read the relevant file in docs/ (devlog, decisions, security-review, test-log) before larger changes.
 - Never read .env or .env.local. If a value is needed, ask me to set it.
+
+- The system design is docs/architecture.md (diagrams in docs/images/). Read the relevant section before implementing a feature.
