@@ -19,6 +19,35 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
     "respx>=0.23.1",
     "ruff>=0.17.2",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "D", "ANN", "S", "C90"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["D103", "S101", "ANN201"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["backend/app", "scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend", "."]
+asyncio_mode = "auto"
+markers = ["integration: needs local services"]
+addopts = "-ra --junitxml=reports/junit.xml --cov=backend/app --cov=scripts --cov-report=term-missing --cov-report=xml:reports/coverage.xml"
