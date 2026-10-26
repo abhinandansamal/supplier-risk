@@ -31,10 +31,12 @@ Times are Europe/Berlin. Secrets are never written here.
   (actions pinned to full commit SHAs, verified through the GitHub API).
 - Tests added: 16 for the report script (8 of them for SEC-001/002, written first and red), 1 smoke test. Results: 17 passed, coverage 98 %. Integration: not run (no services touched).
 - Security review (security-breaker): no Critical or High. Medium: SEC-001 (Markdown injection through newlines in test ids,
-  FIXED), SEC-002 (bad time attribute breaks "always exits 0", FIXED), SEC-009 (gitleaks and branch guard only local; no CI
-  secret scan; OPEN).
+  FIXED), SEC-002 (bad time attribute breaks "always exits 0", FIXED), SEC-009 (gitleaks only local; no CI secret scan,
+  FIXED).
   Low: SEC-003 to SEC-008, SEC-010. See docs/security-review.md.
 - Decisions: stdlib ElementTree with noqa (trusted pytest output; defusedxml deferred, SEC-003); CI runs commands through
   `uv run`; added read-only workflow permissions and a timeout.
-- SEC-009 not fixed: the pre-commit gitleaks hook scans only staged changes, so running it with --all-files in CI scans nothing
-  (verified, "0 commits scanned"). Adding it would give false assurance; waiting for a decision on the CI invocation.
+- SEC-009 fixed: the pre-commit gitleaks hook scans only staged changes (0 commits scanned in CI), so CI instead downloads
+  gitleaks v8.30.1 (pinned sha256, checked against the release checksums.txt) and runs `gitleaks git --redact` on the full
+  history (fetch-depth: 0). Tested on throwaway repos: clean repo passes (exit 0), committed-then-removed fake token fails
+  (exit 1); real repo history clean (5 commits). Branch protection on main is still a manual repo setting.
