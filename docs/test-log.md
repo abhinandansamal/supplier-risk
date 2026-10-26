@@ -6,3 +6,4 @@ GitHub Actions run page (job summary) with the JUnit and coverage reports as art
 | Date | Branch | Unit (pass/fail/skip/xfail) | Integration | Coverage | Details |
 |---|---|---|---|---|---|
 | 2026-10-26 | chore/ci | 17/0/0/0 | not run (no services touched) | 98 % | [details](test-runs/2026-10-26-chore-ci.md) |
+| 2026-10-27 | feat/core | 130/0/0/10 | not run (no services touched) | 97 % | [details](test-runs/2026-10-27-feat-core.md) |
