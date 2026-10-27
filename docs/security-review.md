@@ -262,3 +262,9 @@ limiter test stays a strict xfail. Open as strict xfails: SEC-102, 105, 106, 107
 Scope of improvement: the retention purge runs only at startup; no TrustedHostMiddleware (DNS rebinding could read
 /ready and /health, never the SameSite=Strict cookie); `stop()` does not await the cancelled investigation before the
 clients close; hourly limits and stream counters reset on restart; no global cap on concurrent scrypt checks.
+
+## 2026-10-27 | load test (docs/load-test-report.md)
+
+| ID | Severity | Where | Finding | Test | Fix | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SEC-111 | Medium | api/auth.login (SEC-100 fix) | The attempt is counted before the password check. With 6 or more logins of one account in flight at once, correct passwords get 429 `too_many_attempts`: 58 lockouts at 200 load-test users, 863 at 3000. Shared demo accounts make this likely. | test_concurrent_correct_logins_of_one_account_all_succeed | Serialise the check per username (an asyncio.Lock per bucket) and count only failures; SEC-100 stays covered. | open (user decision: not fixed before the demo; README asks for one person per demo account) |

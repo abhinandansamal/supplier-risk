@@ -1,5 +1,8 @@
 # Supplier Risk Investigator: System Design
 
+> This is the design as planned on 26 Oct. What was built differs; see the README 'Scope cuts' and
+> docs/decisions/.
+
 Version: 25 Oct 2026. Diagrams: docs/images/. This file is the design Claude Code must follow.
 
 ## 1. Summary

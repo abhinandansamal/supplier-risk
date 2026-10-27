@@ -209,6 +209,21 @@ async def test_concurrent_wrong_logins_cannot_exceed_the_failure_limit(
     assert checked <= 5, f"{checked} passwords checked in one burst"
 
 
+# --- SEC-111: concurrent correct logins of one account lock it out (found by the load test) --
+
+
+@pytest.mark.xfail(strict=True, reason="SEC-111")
+async def test_concurrent_correct_logins_of_one_account_all_succeed(
+    make_async_api: Callable[..., AsyncApi],
+) -> None:
+    # SEC-100 counts an attempt before the password check, so 6+ logins in flight at once
+    # lock the account although every password is right.
+    api = make_async_api()
+    async with api.client() as client:
+        responses = await asyncio.gather(*(api.login(client, "risk_manager") for _ in range(10)))
+    assert [r.status_code for r in responses] == [200] * 10
+
+
 # --- SEC-101: failures for other usernames evict a locked user --------------------------------
 
 
