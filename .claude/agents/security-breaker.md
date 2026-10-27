@@ -24,6 +24,7 @@ Attack checklist (try each that applies):
 
 Rules:
 - Never read .env or .env.local. Never call real external services; use fakes/respx in tests.
+- Never modify live services, databases or roles; reproduce problems only in tests, fixtures or throwaway containers.
 - For each confirmed problem, write a failing test in backend/tests/security/ marked
   @pytest.mark.xfail(strict=True, reason="SEC-<NNN>"). Do NOT change production code.
 - Run the tests you wrote to show they reproduce the problem.
