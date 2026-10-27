@@ -1,7 +1,9 @@
 """Tests for app.core.settings: loading, defaults, secrets and startup errors."""
 
+from collections.abc import Callable
+
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from app.core.settings import Settings, SettingsError, load_settings
 
@@ -105,3 +107,108 @@ def test_log_level_is_case_insensitive(
 ) -> None:
     monkeypatch.setenv("LOG_LEVEL", "debug")
     assert load_settings(env_file=None).log_level == "DEBUG"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "http://127.0.0.1:8088/v1",
+        "http://127.0.0.1:8088",
+        "http://127.0.0.1:8088/",
+        "127.0.0.1:8088",
+        "127.0.0.1:8088/v1/",
+        "http://127.0.0.1:8088/v1/chat/completions",
+        "http://127.0.0.1:8088/v1/models",
+        "http://127.0.0.1:8088/v1/embeddings",
+        "http://127.0.0.1:8088/healthz",
+        "http://127.0.0.1:8088/v1/v1",
+        "  http://127.0.0.1:8088/v1?x=1#frag  ",
+    ],
+)
+def test_meterless_base_url_is_normalised(make_settings: Callable[..., Settings], raw: str) -> None:
+    assert make_settings(meterless_base_url=raw).meterless_base_url == "http://127.0.0.1:8088/v1"
+
+
+def test_meterless_base_url_keeps_https_and_path_prefix(
+    make_settings: Callable[..., Settings],
+) -> None:
+    settings = make_settings(meterless_base_url="https://gw.example.com/nightshift/v1/models")
+    assert settings.meterless_base_url == "https://gw.example.com/nightshift/v1"
+
+
+@pytest.mark.parametrize(
+    "raw", ["ftp://127.0.0.1:8088/v1", "http:///v1", "http://user:pw@127.0.0.1:8088/v1"]
+)
+def test_meterless_base_url_rejects_bad_urls(
+    make_settings: Callable[..., Settings], raw: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(meterless_base_url=raw)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["meterless_model", "meterless_deep_model", "meterless_fast_model", "meterless_embed_model"],
+)
+@pytest.mark.parametrize("model_id", ["meterless/auto", "meterless/fusion", " Meterless/Auto "])
+def test_routing_modes_are_rejected_as_model_ids(
+    make_settings: Callable[..., Settings], field: str, model_id: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(**{field: model_id})
+
+
+def test_routing_mode_error_names_the_variable(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("METERLESS_DEEP_MODEL", "meterless/fusion")
+    with pytest.raises(SettingsError, match="METERLESS_DEEP_MODEL"):
+        load_settings(env_file=None)
+
+
+@pytest.mark.parametrize("token", ["rt-local", " rt-local "])
+def test_placeholder_runtime_token_is_rejected(
+    make_settings: Callable[..., Settings], token: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(meterless_runtime_token=token)
+
+
+@pytest.mark.parametrize("app_id", ["Supplier-Risk", "supplier risk", "-x", "a" * 65])
+def test_app_id_must_be_a_stable_lowercase_id(
+    make_settings: Callable[..., Settings], app_id: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(meterless_app_id=app_id)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "http://localhost:8088/v1",
+        "http://127.0.0.2:8088/v1",
+        "http://[::1]:8088/v1",
+        "http://host.docker.internal:8088/v1",
+        "https://nightshift.example.com/v1",
+    ],
+)
+def test_plain_http_is_allowed_only_for_local_hosts(
+    make_settings: Callable[..., Settings], raw: str
+) -> None:
+    assert make_settings(meterless_base_url=raw).meterless_base_url == raw
+
+
+@pytest.mark.parametrize("raw", ["http://10.0.0.5:8088/v1", "nightshift.example.com"])
+def test_plain_http_to_a_remote_host_is_rejected(
+    make_settings: Callable[..., Settings], raw: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(meterless_base_url=raw)
+
+
+@pytest.mark.parametrize("token", ["has space", "tab\tinside", "RT-Local", "x" * 4097])
+def test_runtime_token_must_be_visible_ascii(
+    make_settings: Callable[..., Settings], token: str
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(meterless_runtime_token=token)

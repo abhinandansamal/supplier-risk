@@ -62,3 +62,37 @@ Times are Europe/Berlin. Secrets are never written here.
   match ^[A-Za-z0-9._-]{1,64}$; body limit is enforced while streaming (HTTPException 413 so FastAPI re-raises it);
   ruff treats `app` as first-party; app code imports `app.*` (backend is on pythonpath).
 - Follow-up: SEC-016 (cache/protect /ready) before real routes exist. Local .env keeps APP_ENV=dev (user's own file).
+
+## Tue 27 Oct 2026: Meterless Nightshift client (branch feat/llm-client)
+- Added backend/app/llm: MeterlessClient (status, chat, embed) on httpx.AsyncClient, following the official "Add
+  Meterless as a provider" contract (Runtime 0.90.0): Bearer token and meterless-app on every call, meterless-scope:
+  user on chat, GET /v1/models decides online/unauthorized/offline (10 s), 180 s per attempt, no redirects followed.
+  Shared AsyncRateLimiter (30/min, 2 concurrent), retries on 429/5xx/timeouts (max 4, exponential backoff + jitter,
+  Retry-After capped at 60 s), deep -> default fallback once on persistent 429 (model_fallback), CallBudget (15, WARNING
+  at 80 %, BudgetExhausted), reasoning stripped up to the last </think>, tool-call arguments parsed with json.loads only.
+- ChatResult carries requested_model, routed_model, provider (winning_route.provider), receipt_id, cache_status and
+  from_cache (meterless.cache.status), usage, latency_ms, retries, fallback_used; all of them (no content) are on the
+  one INFO model_call line.
+- Settings: METERLESS_BASE_URL is normalised to <host>/v1 (scheme optional, endpoint suffixes cut, never /v1/v1);
+  meterless/auto and meterless/fusion rejected as model ids; rt-local rejected; app id must be lowercase.
+- scripts/check_llm.py runs the five live checks and prints PASS/FAIL lines (ids only). Architecture test: tools/ and
+  zetaris/ may not import llm/, and llm/ imports only core/.
+- Tests (written first, red then green): settings, text, budget, limiter, client status/chat/embed/logging, check_llm,
+  security. Unit + security: 392 passed, 12 xfailed, coverage 97 %. Integration (live Nightshift): 5/5 on the final run.
+- Security review (security-breaker): no Critical or High. Fixed test first on request: SEC-019 (non-ASCII Retry-After
+  crash), SEC-020 (RecursionError on nested JSON), SEC-021 (unclosed/upper-case think tags, finish_reason=length),
+  SEC-022 (response byte cap, content/tool-call/embedding bounds, finite vectors), SEC-023 (per-attempt asyncio timeout
+  and a 600 s total deadline), SEC-025, 026, 027, 028 (https unless local runtime), 030 (header-safe token). Open:
+  SEC-024 (limiter bound to one event loop; per-process, so N workers exceed 40 RPM) and SEC-029 (embed not budgeted).
+- Live finding: a repeated identical prompt was answered from Nightshift's exact cache (cache.status exact, 4 ms), and the
+  cache keeps no tool_calls, so the tool-call test got an empty reply. The client now treats an empty reply (tools sent
+  but no tool calls and no content, or 0 completion tokens) as a cache artefact: one retry with a "request-id: <uuid4>"
+  system message, then LLMBadResponse (event model_empty_reply). Live prompts include a fresh uuid4.
+- Decisions: receipts show requested_mode meterless/auto even for pinned ids, so routed_model comes from
+  meterless.routed_model (then winning_route.model, then the response model) and provider from winning_route; retries,
+  the fallback and the empty-reply retry do not use extra budget units (the limiter paces every HTTP attempt); status()
+  bypasses the limiter (local runtime); plain http is allowed for loopback, localhost and host.docker.internal only;
+  exception names follow the feature spec (noqa N818).
+- Follow-up: SEC-024 (own the limiter in the app lifespan, single API worker or a shared store), SEC-029 (budget for
+  embeddings and a cap on HTTP attempts per investigation), confirm whether GET /v1/models counts against the NVIDIA quota.
+- cache-retry path not yet security-reviewed; covered in the red-team pass.

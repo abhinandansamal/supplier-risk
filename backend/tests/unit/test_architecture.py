@@ -8,6 +8,10 @@ APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 CHAIN = ["api", "services", "agent", "tools", "zetaris"]
 ZETARIS = "zetaris"
 ZETARIS_USERS = {"tools", "zetaris"}
+# The model client is used by agent/ and memory/; tools and the data client stay model-free.
+LLM = "llm"
+LLM_FORBIDDEN_USERS = {"tools", "zetaris"}
+LLM_ALLOWED_IMPORTS = {"core"}
 
 
 def _module_parts(path: Path, root: Path) -> list[str]:
@@ -59,14 +63,25 @@ def find_violations(root: Path) -> list[str]:
             if target is None or target == own or target in seen:
                 continue
             seen.add(target)
-            where = f"{path.relative_to(root)} imports {target_name}"
-            if target == ZETARIS and own not in ZETARIS_USERS:
-                violations.append(f"{where}: only tools/ may import the Zetaris client")
-            elif own in CHAIN and target in CHAIN and CHAIN.index(target) < CHAIN.index(own):
-                violations.append(f"{where}: lower layer {own} imports higher layer {target}")
-            elif own is not None and own not in CHAIN and target in CHAIN:
-                violations.append(f"{where}: cross-cutting package {own} imports layer {target}")
+            problem = _rule_broken(own, target)
+            if problem:
+                violations.append(f"{path.relative_to(root)} imports {target_name}: {problem}")
     return violations
+
+
+def _rule_broken(own: str | None, target: str) -> str | None:
+    """Return why importing package target from package own breaks a rule, or None."""
+    if target == ZETARIS and own not in ZETARIS_USERS:
+        return "only tools/ may import the Zetaris client"
+    if target == LLM and own in LLM_FORBIDDEN_USERS:
+        return f"{own}/ may not call the model client"
+    if own == LLM and target not in LLM_ALLOWED_IMPORTS:
+        return "llm/ may only import core/"
+    if own in CHAIN and target in CHAIN and CHAIN.index(target) < CHAIN.index(own):
+        return f"lower layer {own} imports higher layer {target}"
+    if own is not None and own not in CHAIN and target in CHAIN:
+        return f"cross-cutting package {own} imports layer {target}"
+    return None
 
 
 def _write(root: Path, relative: str, source: str) -> None:
@@ -127,3 +142,24 @@ def test_flags_top_level_module_importing_zetaris(tmp_path: Path) -> None:
 def test_zetaris_may_not_import_tools(tmp_path: Path) -> None:
     _write(tmp_path, "zetaris/a.py", "from app.tools import t\n")
     assert find_violations(tmp_path)
+
+
+def test_tools_and_zetaris_may_not_import_the_model_client(tmp_path: Path) -> None:
+    _write(tmp_path, "tools/a.py", "from app.llm import client\n")
+    _write(tmp_path, "zetaris/a.py", "import app.llm.client\n")
+    messages = find_violations(tmp_path)
+    assert len(messages) == 2
+    assert all("may not call the model client" in m for m in messages)
+
+
+def test_model_client_may_only_import_core(tmp_path: Path) -> None:
+    _write(tmp_path, "llm/a.py", "from app.core.settings import Settings\n")
+    _write(tmp_path, "llm/b.py", "from app.memory import m\n")
+    messages = find_violations(tmp_path)
+    assert len(messages) == 1
+    assert "llm/ may only import core/" in messages[0]
+
+
+def test_memory_may_use_the_model_client(tmp_path: Path) -> None:
+    _write(tmp_path, "memory/a.py", "from app.llm import MeterlessClient\n")
+    assert find_violations(tmp_path) == []

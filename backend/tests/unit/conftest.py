@@ -1,11 +1,14 @@
-"""Shared fixtures: a complete, fake environment and a Settings factory (never reads .env)."""
+"""Shared fixtures: a fake environment, a Settings factory and a mocked Meterless runtime."""
 
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
+import respx
 
 from app.core.settings import Settings
+from app.llm.client import MeterlessClient
+from app.llm.rate_limiter import AsyncRateLimiter
 
 FAKE_ENV: dict[str, str] = {
     "ZETARIS_REST_URL": "http://localhost:8888/api/v1.0",
@@ -53,3 +56,52 @@ def make_settings(env: dict[str, str], tmp_path: Path) -> Callable[..., Settings
 def settings(make_settings: Callable[..., Settings]) -> Settings:
     """Return default fake settings (dev environment)."""
     return make_settings()
+
+
+class RecordingSleep:
+    """Async sleep replacement that records the requested delays instead of waiting."""
+
+    def __init__(self) -> None:
+        """Start with no recorded delays."""
+        self.delays: list[float] = []
+
+    async def __call__(self, seconds: float) -> None:
+        """Record the delay and return at once."""
+        self.delays.append(seconds)
+
+
+@pytest.fixture
+def meterless() -> Iterator[respx.MockRouter]:
+    """Mock the Meterless runtime at the fake base URL; no network."""
+    with respx.mock(base_url=FAKE_ENV["METERLESS_BASE_URL"], assert_all_called=False) as router:
+        yield router
+
+
+@pytest.fixture
+def sleeper() -> RecordingSleep:
+    """Return the sleep recorder that client fixtures use for backoff."""
+    return RecordingSleep()
+
+
+@pytest.fixture
+async def make_client(
+    settings: Settings, sleeper: RecordingSleep
+) -> AsyncIterator[Callable[..., MeterlessClient]]:
+    """Return a factory for clients with no real sleeping, zero jitter and a roomy rate limit."""
+    clients: list[MeterlessClient] = []
+
+    def factory(**overrides: object) -> MeterlessClient:
+        options: dict[str, object] = {
+            "limiter": AsyncRateLimiter(max_calls=1000),
+            "sleep": sleeper,
+            "rand": lambda: 0.0,
+        }
+        options.update(overrides)
+        client_settings = options.pop("settings", settings)
+        client = MeterlessClient(client_settings, **options)  # type: ignore[arg-type]
+        clients.append(client)
+        return client
+
+    yield factory
+    for client in clients:
+        await client.aclose()
