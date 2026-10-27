@@ -9,8 +9,10 @@ Open Agent Hackathon 2026, track **"The Agent That Can Explain Why"**.
 
 ## What it does
 - **Deterministic risk score.** Python computes the score, not the model, from five components:
-  delivery, concentration, financial, country and weather. Every component gives its weight, its reason
-  and its evidence.
+  delivery, concentration, financial, country and weather.
+  - Weather is always "not assessed": the NOAA data was not onboarded. The coverage shows the gap (for
+    example 85 %).
+  - Every component gives its weight, its reason and its evidence.
 - **Claims a verifier checks.**
   - Every claim cites evidence ids.
   - Every number in a claim must match a fact computed from the cited rows. A Python verifier checks this,
@@ -18,7 +20,7 @@ Open Agent Hackathon 2026, track **"The Agent That Can Explain Why"**.
   - A claim that fails is rewritten once. If it still fails, it is marked unverified and the case
     escalates.
   - Without evidence, the agent says what is missing instead of guessing.
-- **Evidence panel.** For each evidence id: tool, source, Zetaris view, SQL template, snapshot time,
+- **Evidence panel.** For each evidence id: tool, source, Zetaris view, SQL statement id, snapshot time,
   Zetaris query id, row count and the computed facts.
 - **"How we got here".** A live timeline of every agent step, streamed over server-sent events: agent,
   exact Nemotron model, Nightshift receipt id, latency, tools and evidence ids.
@@ -30,17 +32,46 @@ Open Agent Hackathon 2026, track **"The Agent That Can Explain Why"**.
 
 ## Architecture
 
-![High-level design](docs/images/hld.png)
+```mermaid
+flowchart TB
+  U["Procurement user (browser)"] --> UI["Web UI: one HTML/CSS/JS page served by FastAPI"]
+  UI --> API["FastAPI: login (JWT cookie), roles, rate limits, in-process queue, SSE trace"]
+  API --> DB[("SQLite app DB: investigations, results, proposals, decisions")]
+  API --> AG["LangGraph agents: Guard, Planner, Research per dimension, Evaluator (max 2 extra rounds), Risk score (Python), Recommender, Writer, Verifier (Python), Escalation"]
+  AG -->|"model calls"| NS["Meterless Nightshift (127.0.0.1:8088): receipts"]
+  NS --> NV["NVIDIA Nemotron: Ultra, Lightning, Bolt"]
+  AG --> WM["Context service: Meterless World Model case board (internal, token)"]
+  AG --> TL["Tool layer: snapshot cache per role and view, one constant SQL per view, filtering in Python, evidence records"]
+  TL -->|"role keys svc_buyer / svc_risk"| Z["Zetaris: 9 role-granted views in container risk"]
+  Z --> ERP[("Synthetic ERP Postgres :5433, read-only role")]
+  Z --> PUB["Public REST: SEC EDGAR, Eurostat"]
+```
 
 | Layer | What |
 | --- | --- |
-| Agents | LangGraph: guard -> planner -> research (delivery/concentration, financial, country, weather) -> evaluator loop (max 3 rounds) -> score -> recommender -> writer -> verifier -> escalation ([graph](docs/images/agent-graph.png), decision 0007) |
-| Data | Zetaris is the only data door. It joins the synthetic ERP, SEC EDGAR and Eurostat and serves role-scoped views. The app reads them through fixed SQL templates only; it never runs model-written SQL. |
+| Agents | LangGraph: guard -> planner -> research (delivery, concentration, financial, country; weather needs no model and is always "not assessed") -> evaluator (at most 2 extra research rounds) -> score -> recommender -> writer -> verifier -> escalation ([graph](docs/images/agent-graph.png), decision 0007) |
+| Data | Zetaris is the only data door. It serves 9 role-granted views in container `risk` over the synthetic ERP, SEC EDGAR and Eurostat. The app reads each view with one constant SQL statement: no parameters and no model input in SQL. It filters by supplier, months and category in Python on a cached snapshot ([decision 0004](docs/decisions/0004-snapshot-reads-and-row-scope.md)). |
 | Models | Meterless Nightshift on the local machine, routing to NVIDIA Nemotron: Lightning (research, evaluator), Ultra (planner, recommender, writer), Bolt (guard) |
 | Memory | Meterless World Model as the agents' shared case board (`context-service/`, vendored reference implementation) |
-| App | FastAPI with one worker and an in-process queue, SQLite, and one plain HTML/CSS/JS page (decision 0008) |
+| App | FastAPI with one worker and an in-process queue, SQLite, and one plain HTML/CSS/JS page ([decision 0008](docs/decisions/0008-api-queue-sqlite-ui.md)) |
 
-Full design: [docs/architecture.md](docs/architecture.md). Decisions: [docs/decisions/](docs/decisions/).
+The [planned design](docs/architecture.md) and its [diagram](docs/images/hld.png) show the original
+design, before the scope cuts. Decisions: [docs/decisions/](docs/decisions/).
+
+## Scope cuts (honest)
+- **H-MEM (long-term memory):** cut for time. The Planner and Recommender run without past cases
+  (decision 0007, choice 4).
+- **Weather (NOAA):** the source was not onboarded in time. The component is always "not assessed" and
+  lowers the coverage.
+- **React UI:** cut for time. One plain HTML/CSS/JS page instead ([decision 0008](docs/decisions/0008-api-queue-sqlite-ui.md)).
+- **Postgres app database:** SQLite instead. With one process and one worker it is enough (decision
+  0008).
+- **Zetaris CACHE TABLE:** replaced by the app's in-memory snapshot cache per role and view
+  ([decision 0004](docs/decisions/0004-snapshot-reads-and-row-scope.md)).
+- **Zetaris column masking:** not configured (SEC-058). Column scope rests on the view grants per role
+  alone: buyer views have no price, value or note columns.
+- **Multi-worker deployment:** one process with one worker. The queue, live events and model rate
+  limiter live in that process (SEC-024, decision 0008).
 
 ## How to run
 Needs Python 3.12 with [uv](https://docs.astral.sh/uv/), Docker, a local Zetaris install
@@ -82,9 +113,13 @@ Users read only their own investigations; the director may read all. Anyone else
 
 ## Security
 The design assumes a prompt injection may succeed and limits what it can do:
-- **Scope.** Data scope is enforced in Zetaris (one read-only key per role, with masking) and again in
-  the tools: the category is a bound parameter.
-- **SQL.** Only fixed SQL templates with validated parameters; no model-written SQL.
+- **Scope.**
+  - Column scope comes from Zetaris view grants per role: one read-only key per role, and buyer views
+    have no prices, contract values or notes.
+  - Row scope is the buyer's category from the session. It is filtered in Python on the snapshot
+    (decision 0004).
+- **SQL.** One constant SQL statement per view: no parameters and no model or user input in SQL. Tool
+  arguments are validated with Pydantic.
 - **Untrusted text.** Text from Zetaris, documents and the model is data, never instructions. Free-text
   ERP fields go through an injection detector. Evidence rows never reach the browser.
 - **Approvals.** Actions are only proposed, and a decision is recorded once per proposal.
@@ -162,8 +197,8 @@ security review, and the [test run](docs/test-runs/2026-10-27-feat-api-ui.md).
 
 ## Sponsor technology
 - **Zetaris**: the single data layer. It registers the synthetic ERP (Postgres), SEC EDGAR and Eurostat
-  (REST) and serves risk views with role-scoped users and masking. The app reads them through fixed
-  templates (`backend/app/tools/`).
+  (REST) and serves 9 risk views, granted per role user (svc_buyer, svc_risk). The app reads each view
+  with one constant SQL statement (`backend/app/tools/views.py`).
 - **Meterless Nightshift**: the AI provider, an OpenAI-compatible runtime on the local machine. The app
   pins exact model ids (never `meterless/auto` or `meterless/fusion`) and stores the receipt id of every
   call. It also respects the free-tier limit: a shared limiter at 30 requests/minute, at most 2
