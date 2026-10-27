@@ -40,3 +40,25 @@ Times are Europe/Berlin. Secrets are never written here.
   gitleaks v8.30.1 (pinned sha256, checked against the release checksums.txt) and runs `gitleaks git --redact` on the full
   history (fetch-depth: 0). Tested on throwaway repos: clean repo passes (exit 0), committed-then-removed fake token fails
   (exit 1); real repo history clean (5 commits). Branch protection on main is still a manual repo setting.
+
+## Tue 27 Oct 2026: Application core (branch feat/core)
+- Added settings (pydantic-settings, SecretStr, startup error names variables only), JSON logging with contextvars and a
+  redaction filter on all handlers, the one error model, the FastAPI app factory (request-id + access-log middleware,
+  16 KB body limit, /health, /ready with a readiness registry, /docs only in dev) and app.main:create for uvicorn.
+- Tests added (130 passing + 10 strict xfail, written first, red then green): settings, logging, redaction, errors, API app, architecture
+  rule (parses imports; self-tests with fake trees), main. Results: 130 passed, 10 xfailed, coverage 97 %. Integration: not run.
+- Security review (security-breaker): no Critical or High. Medium: SEC-011 (redaction misses key=value, URL userinfo,
+  cookies, api-key headers), SEC-013 (percent-decoded URL passwords), SEC-016 (/ready unauthenticated, uncached).
+  Low: SEC-012, 014, 015, 017, 018. All recorded in docs/security-review.md.
+- Fixed on request before the commit, test first: SEC-011 (redaction now covers password/secret/token/api_key
+  key=value pairs and query params, URL user:password@ userinfo, Cookie/Set-Cookie and whole Authorization
+  headers, wider Bearer charset; patterns are keyword-anchored and bounded, checked linear on 1 MB input),
+  SEC-013 (secret_values adds the percent-decoded URL password and strips whitespace), SEC-017 (.env.example
+  ships APP_ENV=prod). Still open and recorded: SEC-012, 014, 015, 016, 018 (10 strict-xfail tests).
+- Deliberate choice (SEC-011): the Authorization and Cookie/Set-Cookie patterns redact the rest of the line (up to a
+  quote or newline), so text after them on the same line is over-redacted. Safer than leaking; a key=value secret
+  containing spaces is redacted only up to the first space.
+- Decisions: default APP_ENV is prod (docs off); readiness returns 503 with failed check names only; request ids must
+  match ^[A-Za-z0-9._-]{1,64}$; body limit is enforced while streaming (HTTPException 413 so FastAPI re-raises it);
+  ruff treats `app` as first-party; app code imports `app.*` (backend is on pythonpath).
+- Follow-up: SEC-016 (cache/protect /ready) before real routes exist. Local .env keeps APP_ENV=dev (user's own file).

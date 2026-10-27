@@ -22,3 +22,25 @@ Scope of improvement
 - Pin pre-commit repos by SHA, add Dependabot for actions and uv, and add a dependency audit step.
 - Tighten artifact handling: explicit files, short retention, no secrets scan gaps.
 - Add concurrency and trigger hygiene to the workflow.
+
+## 2026-10-27 | feat/core (settings, logging, errors, API app, middleware, health)
+
+Tests: backend/tests/security/test_core_api_security.py (all xfail strict; run `uv run pytest backend/tests/security`).
+
+1. SEC-011 | Medium | Redactor.redact_text only knows literal secrets, `Authorization:` headers, `Bearer` and `nvapi-`. Not redacted: `password=...`, `?api_key=...`, `user:pass@host` URLs, `Cookie:`, `x-api-key:`, the rest of `Authorization: Digest ...`, and Bearer tokens containing `*`/`!`. Third-party exception text can carry these. | test_unlisted_secret_shapes_are_redacted | Add generic key=value, URL-userinfo, cookie and api-key header patterns; widen the Bearer charset to `\S+`. | FIXED (feat/core)
+2. SEC-012 | Low | `_SENSITIVE_KEY` misses `secret_key`, `private_key`, `access_key`, `credentials`, `passphrase`, `pwd`, `jwt`, `auth`, `session`; extras under these keys are logged raw. | test_sensitive_looking_extra_keys_are_masked | Use a substring match (`secret|passw|pwd|token|key|cred|auth|cookie|session|jwt`) instead of fullmatch. | open
+3. SEC-013 | Medium | `secret_values()` adds `urlsplit(url).password`, which is percent-encoded. A DB password with `@`, `/`, `%` is logged by drivers in decoded form and is not redacted. | test_decoded_url_password_is_redacted | Also add `urllib.parse.unquote(password)`; also strip surrounding whitespace of every secret. | FIXED (feat/core)
+4. SEC-014 | Low | RedactionFilter.filter calls `str()` on extras with no guard. An object whose `__str__` raises makes the `logger.x(...)` call raise into the caller (availability, possibly in an error path). | test_unprintable_extra_does_not_crash_logging_call | Wrap in try/except and fall back to `<unprintable TypeName>`. | open
+5. SEC-015 | Low | `_VALID_ID` uses `$` with `match`, so an id ending in `\n` is accepted and echoed in the X-Request-ID response header and the logs (header or log injection if the server does not reject it; confirmed at ASGI level). Clients may also choose any id (log correlation spoofing, e.g. `admin-req-1`). | test_request_id_with_trailing_newline_rejected | Use `fullmatch` and, for untrusted callers, always generate a server id and keep the client id as a separate field. | open
+6. SEC-016 | Medium | `/ready` is unauthenticated and runs every upstream check on every call, with no cache or coalescing: 200 anonymous requests produced 200 upstream checks (Zetaris, DB, context service). It also names the failing dependency. | test_ready_is_not_an_unauthenticated_amplifier | Cache the result for 2-5 s with a single in-flight task; expose only on an internal port or behind the gateway; return failed names only to internal callers. | open
+7. SEC-017 | Low | `.env.example` ships `APP_ENV=dev`, so a copied file enables /docs, /redoc and /openapi.json. (Code default is safely prod; /docs is 404 in prod, verified.) | test_env_example_defaults_to_prod | Ship `APP_ENV=prod` or comment it out. | FIXED (feat/core)
+8. SEC-018 | Low | Not covered by a test: (a) the CRITICAL `startup_failed` log in main.create runs before setup_logging, so it goes only to stderr via lastResort and never to logs/errors.jsonl; (b) log files are created with the default umask (0644) and hold request paths/ids. | manual | Install a minimal console handler before load_settings; create LOG_DIR with 0700 and files with 0600. | open
+
+Checked and found sound: stack traces and exception text never reach clients (500, 404, 422 return only the error model; validation messages list field names only); settings errors name variables only (`from None`); 16 KB limit holds for Content-Length (single, duplicate, negative, oversize), chunked bodies (413 while streaming) and non-http scopes (no routes); websocket scope gets a clean close; readiness failures log only the exception type; literal secrets are redacted in message, args, extras, nested dicts, exception text and tracebacks; redaction regexes are linear (1 MB adversarial input in under 0.1 s).
+
+Scope of improvement
+- Redaction by shape (key=value, URL userinfo, cookies, JWTs) in addition to literal values, plus a property-based test that logs every secret in raw, URL-encoded, base64 and quoted forms.
+- Separate server-generated request id from the client-supplied correlation id.
+- Cache and protect /ready; add rate limiting and auth middleware before real routes exist.
+- Fail closed on logging errors (never raise from the filter) and set restrictive file permissions on logs/ and runs/.
+- Add a test that drives a real uvicorn instance (h11/httptools) for body-limit and header edge cases, not only ASGI-level calls.
