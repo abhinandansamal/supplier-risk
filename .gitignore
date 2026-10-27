@@ -10,6 +10,10 @@ node_modules/
 dist/
 .DS_Store
 data/local/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.log
 .claude/settings.local.json
 CLAUDE.local.md

@@ -10,6 +10,7 @@ import asyncio
 import inspect
 import json
 import logging
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -38,6 +39,9 @@ from app.tools.context import ToolContext
 logger = logging.getLogger(__name__)
 
 Clock = Callable[[], float]
+TraceListener = Callable[[TraceEvent], None]
+# Security: the id names the trace file and the case, so it is never free text.
+INVESTIGATION_ID_PATTERN = re.compile(r"inv-[0-9a-f]{16}")
 
 
 class ChatModel(Protocol):
@@ -87,17 +91,24 @@ class Trace:
         path: File the events are appended to (runs/<investigation_id>.jsonl), if any.
     """
 
-    def __init__(self, budget: CallBudget, path: Path | None = None) -> None:
+    def __init__(
+        self,
+        budget: CallBudget,
+        path: Path | None = None,
+        listener: TraceListener | None = None,
+    ) -> None:
         """Create an empty trace.
 
         Args:
             budget: Budget whose remaining calls each event records.
             path: JSONL file to append events to.
+            listener: Called with every event as it happens (the API's live stream).
         """
         self.events: list[TraceEvent] = []
         self.path = path
         self._budget = budget
         self._file_failed = False
+        self._listener = listener
 
     def add(self, agent: str, action: str, **fields: Any) -> TraceEvent:  # noqa: ANN401
         """Append an event and return it.
@@ -119,7 +130,21 @@ class Trace:
         )
         self.events.append(event)
         self._write(event)
+        self._notify(event)
         return event
+
+    def _notify(self, event: TraceEvent) -> None:
+        """Pass the event to the listener; a failing listener never fails the investigation."""
+        if self._listener is None:
+            return
+        try:
+            self._listener(event)
+        except Exception as exc:  # noqa: BLE001 - the listener is the caller's code
+            self._listener = None
+            logger.warning(
+                "trace listener failed",
+                extra={"event": "trace_listener_failed", "error_type": type(exc).__name__},
+            )
 
     def _write(self, event: TraceEvent) -> None:
         """Append one JSON line; a failing file never fails the investigation."""
@@ -228,6 +253,7 @@ def new_run(
     investigation_id: str | None = None,
     clock: Clock = time.monotonic,
     trace_path: Path | None = None,
+    on_event: TraceListener | None = None,
 ) -> Run:
     """Return a run with a fresh budget, deadline, case board and trace.
 
@@ -239,6 +265,7 @@ def new_run(
         investigation_id: Id to use (new by default).
         clock: Monotonic clock for the deadline.
         trace_path: JSONL file for the trace.
+        on_event: Called with every trace event as it happens.
 
     Returns:
         The run.
@@ -252,7 +279,7 @@ def new_run(
         budget=budget,
         deadline=Deadline(settings.investigation_deadline_seconds, clock=clock),
         board=CaseBoard(board_client, investigation_id, suppliers=set()),
-        trace=Trace(budget, trace_path),
+        trace=Trace(budget, trace_path, on_event),
         step_models=settings.agent_step_models(),
         model_call_timeout=settings.model_call_timeout_seconds,
         tool_call_timeout=settings.tool_call_timeout_seconds,

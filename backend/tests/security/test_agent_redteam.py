@@ -252,6 +252,9 @@ async def test_a_supplier_name_that_is_a_common_word_does_not_join_the_question(
         fake.overrides[view] = rows
     case = await investigate(question="Why is S0003 risky?")
     assert case.result.suppliers == ["S0003"]
+    # Without ids, only the full name counts: "risky" alone no longer joins the question.
+    case = await investigate(question="Why is Microchip Technology Incorporated risky?")
+    assert case.result.suppliers == ["S0003"]
 
 
 # --- SEC-099: the instruction-like detector misses simple variants ---------------------------

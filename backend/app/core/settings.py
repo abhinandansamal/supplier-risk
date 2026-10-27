@@ -32,6 +32,11 @@ AGENT_STEPS = ("guard", "planner", "research", "evaluator", "recommender", "writ
 # Routing modes, not models: we pin exact Nemotron ids (decision 0001).
 FORBIDDEN_MODEL_IDS = frozenset({"meterless/auto", "meterless/fusion"})
 PLACEHOLDER_RUNTIME_TOKENS = frozenset({"rt-local"})
+PLACEHOLDER_PASSWORDS = frozenset({"replace-me", "changeme", "password"})
+MIN_DEMO_PASSWORD_CHARS = 8
+MIN_JWT_SECRET_CHARS = 32
+# Same values as app.security.identity.Category (core may not import security).
+Category = Literal["electronics", "chemicals", "metals", "logistics"]
 # Visible ASCII only: the token goes into an HTTP header verbatim.
 RUNTIME_TOKEN_PATTERN = re.compile(r"[\x21-\x7e]{1,4096}")
 # Compose service name of the context service (plain http is fine on the internal network).
@@ -173,6 +178,16 @@ class Settings(BaseSettings):
         agent_model_evaluator: Route of the evaluator (default = Lightning).
         agent_model_recommender: Route of the recommender (deep = Ultra).
         agent_model_writer: Route of the writer (deep = Ultra).
+        jwt_secret: HMAC key of the session tokens (HS256); the API refuses to start without it.
+        demo_buyer_password: Password of the demo buyer; unset disables that user.
+        demo_risk_password: Password of the demo risk manager; unset disables that user.
+        demo_director_password: Password of the demo director; unset disables that user.
+        demo_buyer_category: Category (row scope) of the demo buyer.
+        session_cookie_secure: Send the session cookie over HTTPS only (set behind TLS).
+        retention_days: Investigations older than this are purged at startup.
+        queue_max_length: Most investigations waiting in the queue (more get 429).
+        investigations_per_user_per_hour: Per-user limit on new investigations (more get 429).
+        trace_dir: Directory of the agent activity traces (runs/<investigation_id>.jsonl).
         log_level: Minimum level written to the logs.
         log_dir: Directory for the rotating JSON log files.
         app_env: dev enables /docs; prod (the default) does not.
@@ -221,6 +236,19 @@ class Settings(BaseSettings):
     agent_model_evaluator: StepModel = "default"
     agent_model_recommender: StepModel = "deep"
     agent_model_writer: StepModel = "deep"
+    # Optional here so scripts run without it; app.main refuses to serve the API without it.
+    jwt_secret: SecretStr | None = None
+    demo_buyer_password: SecretStr | None = None
+    demo_risk_password: SecretStr | None = None
+    demo_director_password: SecretStr | None = None
+    demo_buyer_category: Category = "electronics"
+    # Off by default: the demo is served over plain http on 127.0.0.1 (scripts/run_app.sh).
+    session_cookie_secure: bool = False
+    retention_days: Annotated[int, Field(ge=1, le=365)] = 30
+    # Security: bounds on queued work (T8); one worker drains the queue (SEC-024).
+    queue_max_length: Annotated[int, Field(ge=1, le=200)] = 20
+    investigations_per_user_per_hour: Annotated[int, Field(ge=1, le=100)] = 10
+    trace_dir: Path = Path("runs")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_dir: Path = Path("logs")
     # Security: the safe default is prod, so API docs are never exposed by accident.
@@ -243,6 +271,10 @@ class Settings(BaseSettings):
         "zetaris_key_buyer",
         "zetaris_key_risk",
         "context_service_token",
+        "jwt_secret",
+        "demo_buyer_password",
+        "demo_risk_password",
+        "demo_director_password",
         mode="before",
     )
     @classmethod
@@ -260,6 +292,24 @@ class Settings(BaseSettings):
         # Security: CR/LF or spaces would break (or inject into) the header; short is guessable.
         if value is not None and not CONTEXT_TOKEN_PATTERN.fullmatch(value.get_secret_value()):
             raise ValueError("must be 32-256 visible ASCII characters")
+        return value
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _long_jwt_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        # Security: a short HMAC key can be brute-forced offline from one captured token.
+        if value is not None and len(value.get_secret_value()) < MIN_JWT_SECRET_CHARS:
+            raise ValueError(f"must be at least {MIN_JWT_SECRET_CHARS} characters")
+        return value
+
+    @field_validator("demo_buyer_password", "demo_risk_password", "demo_director_password")
+    @classmethod
+    def _real_demo_password(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return value
+        password = value.get_secret_value()
+        if len(password) < MIN_DEMO_PASSWORD_CHARS or password.lower() in PLACEHOLDER_PASSWORDS:
+            raise ValueError(f"must be a real password of {MIN_DEMO_PASSWORD_CHARS}+ characters")
         return value
 
     @field_validator("context_service_url")

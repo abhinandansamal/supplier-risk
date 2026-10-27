@@ -11,7 +11,7 @@ from tests.fakes.llm import FakeLLM
 from tests.fakes.zetaris import TODAY
 
 from app.agent.graph import Investigator
-from app.agent.models import InvestigationResult
+from app.agent.models import InvestigationResult, TraceEvent
 from app.core.settings import Settings
 from app.security.identity import UserContext
 from app.tools.cache import SnapshotCache
@@ -54,6 +54,8 @@ def investigate(
         user: UserContext = RISK,
         script: dict[str, list[Any]] | None = None,
         board: FakeBoardClient | None = None,
+        investigation_id: str | None = None,
+        on_event: Callable[[TraceEvent], None] | None = None,
         **settings: Any,  # noqa: ANN401
     ) -> Case:
         llm = FakeLLM(script)
@@ -66,6 +68,9 @@ def investigate(
             today=TODAY,
             trace_dir=tmp_path / "runs",
         )
-        return Case(await investigator.run_investigation(user, question), llm, board)
+        result = await investigator.run_investigation(
+            user, question, investigation_id=investigation_id, on_event=on_event
+        )
+        return Case(result, llm, board)
 
     return run

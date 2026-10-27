@@ -1,13 +1,16 @@
 """Guard: refuse attacks and out-of-scope questions, and resolve the suppliers asked about.
 
 Python rules run first, so an obvious attack costs no model call: role, length, the shared
-instruction-like detector, then supplier resolution (ids and names) within the user's scope
-through the scoped list_my_suppliers tool. A supplier outside the scope gets the same answer
-as an unknown id. Last, a Bolt self-check classifies the question; if that call fails, the
-rules alone decide (the strong defences sit in the tools, the verifier and the approval step).
+instruction-like detector, then supplier resolution within the user's scope through the
+scoped list_my_suppliers tool. A supplier outside the scope gets the same answer as an unknown
+id. Ids decide when given; otherwise only a full supplier name counts (SEC-098), and unless
+exactly one supplier matches, the guard asks for the supplier id instead of guessing. Last, a
+Bolt self-check classifies the question; if that call fails, the rules alone decide (the strong
+defences sit in the tools, the verifier and the approval step).
 """
 
 import re
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -23,9 +26,8 @@ from app.tools.errors import ToolError
 MAX_QUESTION_CHARS = 1000
 MAX_SUPPLIERS = 3
 DATA_ROLES = frozenset({"buyer", "risk_manager", "director"})
-MIN_NAME_WORD = 4
-# Common first words of company names would match ordinary questions ("United Kingdom").
-_GENERIC_NAME_WORDS = frozenset({"united", "general", "international", "national", "global"})
+# Full names shorter than this are too likely to be ordinary words.
+MIN_NAME_CHARS = 4
 # ASCII only: Unicode digits must not form a supplier id (same rule as the tool arguments).
 _SUPPLIER_ID = re.compile(r"(?<![A-Za-z0-9])S[0-9]{4}(?![0-9])", re.ASCII)
 
@@ -34,7 +36,14 @@ REJECTION_MESSAGES = {
     "empty_question": "Please ask a question about a supplier.",
     "too_long": f"Questions are limited to {MAX_QUESTION_CHARS} characters.",
     "instruction_like": "The question looks like an instruction to the system and was refused.",
-    "no_supplier": "Name a supplier in your scope, by name or id (for example S0001).",
+    "no_supplier": (
+        "No supplier in your scope was recognised. Please give the supplier id"
+        " (for example S0003); names count only when written in full."
+    ),
+    "ambiguous_supplier": (
+        "More than one supplier name matched. Please give the supplier id"
+        " (for example S0003) of each supplier you mean."
+    ),
     "supplier_not_found": "No supplier with that name or id was found in your scope.",
     "too_many_suppliers": f"Ask about at most {MAX_SUPPLIERS} suppliers at a time.",
     "off_topic": "Only supplier risk questions can be investigated.",
@@ -63,15 +72,38 @@ def _rule_rejection(run: Run) -> str | None:
     return "instruction_like" if find_instruction_like(question) else None
 
 
-def _name_word(name: object) -> str | None:
-    """Return the distinctive first word of a supplier name, if usable for matching."""
+def _words(text: str) -> str:
+    """Return text as casefolded words split on anything that is not a letter or digit."""
+    folded = unicodedata.normalize("NFKC", text).casefold()
+    return " ".join(re.findall(r"\w+", folded))
+
+
+def _full_name(name: object) -> str | None:
+    """Return the normalised full supplier name, if usable for matching."""
     text = name.get("untrusted_text") if isinstance(name, dict) else None
-    if not isinstance(text, str) or not text.strip():
+    if not isinstance(text, str):
         return None
-    word = text.split()[0].strip(",.()")
-    if len(word) < MIN_NAME_WORD or word.lower() in _GENERIC_NAME_WORDS:
-        return None
-    return word
+    words = _words(text)
+    return words if len(words) >= MIN_NAME_CHARS else None
+
+
+def _named(visible: dict[str, dict[str, object]], question: str) -> set[str]:
+    """Return the suppliers whose full name appears in the question as whole words.
+
+    Security (SEC-108): a matched name that is also part of another visible supplier's name
+    ("Microchip" inside "Microchip Technology Incorporated") counts for both, so the guard
+    asks for the id instead of letting a planted short name capture the question.
+    """
+    asked = f" {_words(question)} "
+    names = {sid: name for sid, item in visible.items() if (name := _full_name(item["name"]))}
+    matched = {sid for sid, name in names.items() if f" {name} " in asked}
+    overlapping = {
+        other
+        for sid in matched
+        for other, name in names.items()
+        if other != sid and f" {names[sid]} " in f" {name} "
+    }
+    return matched | overlapping
 
 
 async def _resolve(run: Run) -> str | None:
@@ -84,13 +116,14 @@ async def _resolve(run: Run) -> str | None:
     asked = set(_SUPPLIER_ID.findall(run.question))
     if asked - visible.keys():
         return "supplier_not_found"
-    # Security (SEC-098): names are untrusted ERP text; ids, when given, decide alone.
-    for supplier_id, item in visible.items() if not asked else ():
-        word = _name_word(item["name"])
-        if word and re.search(rf"\b{re.escape(word)}\b", run.question, re.IGNORECASE):
-            asked.add(supplier_id)
     if not asked:
-        return "no_supplier"
+        # Security (SEC-098): names are untrusted ERP text, so only a full name counts and
+        # anything but exactly one match asks for the id; ids, when given, decide alone.
+        asked = _named(visible, run.question)
+        if not asked:
+            return "no_supplier"
+        if len(asked) > 1:
+            return "ambiguous_supplier"
     if len(asked) > MAX_SUPPLIERS:
         return "too_many_suppliers"
     run.suppliers = [

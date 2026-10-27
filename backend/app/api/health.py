@@ -70,10 +70,28 @@ async def health() -> dict[str, str]:
 
 @router.get("/ready", response_model=None)
 async def ready(request: Request) -> JSONResponse:
-    """Return 200 when every registered check passes, otherwise 503 naming the failed checks."""
+    """Return 200 when every registered check passes, else 503; both name the cache state."""
     registry: ReadinessRegistry = request.app.state.readiness
     results = await registry.run()
     failed = [name for name, passed in results.items() if not passed]
+    cache = cache_state(getattr(request.app.state, "warmup", None))
     if failed:
-        return JSONResponse(status_code=503, content={"status": "not_ready", "failed": failed})
-    return JSONResponse(content={"status": "ready", "checked": registry.names})
+        return JSONResponse(
+            status_code=503, content={"status": "not_ready", "failed": failed, "cache": cache}
+        )
+    return JSONResponse(content={"status": "ready", "checked": registry.names, "cache": cache})
+
+
+def cache_state(warmup: "asyncio.Task[dict[str, str]] | None") -> str:
+    """Return the snapshot warm-up state: off, warming, warm or partial (some views failed).
+
+    The cache is informational: the UI shows a banner while it warms, but it never makes the
+    app unready (cold views are loaded on demand).
+    """
+    if warmup is None:
+        return "off"
+    if not warmup.done():
+        return "warming"
+    if warmup.cancelled() or warmup.exception() is not None:
+        return "partial"
+    return "warm" if "failed" not in warmup.result().values() else "partial"

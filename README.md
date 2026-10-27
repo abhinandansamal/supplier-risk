@@ -20,3 +20,13 @@ own local values; never commit `.env`.
 Context service (World Model case board): set `CONTEXT_SERVICE_TOKEN` in `.env` (e.g. `openssl rand -hex 32`),
 then `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d context-service`. The dev overlay
 publishes it on 127.0.0.1:7070 for a backend running on the host; the main compose file keeps it internal.
+
+## Run the app (API + UI)
+1. In `.env`, set `APP_DATABASE_URL=sqlite:///data/local/app.db`, a `JWT_SECRET` of at least 32 characters
+   (`openssl rand -hex 32`), and `DEMO_BUYER_PASSWORD`, `DEMO_RISK_PASSWORD`, `DEMO_DIRECTOR_PASSWORD`
+   (8+ characters each; an empty password disables that user). Keep `LANGCHAIN_TRACING_V2=false`.
+2. `scripts/run_app.sh`, then open http://127.0.0.1:8000. It runs one uvicorn worker on purpose
+   (decision 0008).
+3. Log in as `buyer` (electronics only), `risk_manager` or `director`. Use an example button (S0003, S0005,
+   or the S0011 injection demo) and watch the agent timeline. Click an evidence id to see the evidence. A
+   banner shows while the data cache is still warming.

@@ -29,7 +29,14 @@ from app.agent.planner import run_planner
 from app.agent.recommender import run_recommender
 from app.agent.report import fallback_report
 from app.agent.research import run_research
-from app.agent.runtime import ChatModel, Run, new_investigation_id, new_run
+from app.agent.runtime import (
+    INVESTIGATION_ID_PATTERN,
+    ChatModel,
+    Run,
+    TraceListener,
+    new_investigation_id,
+    new_run,
+)
 from app.agent.verifier import Problem
 from app.agent.writer import run_verifier, run_writer
 from app.core.logging import investigation_id_var
@@ -261,18 +268,32 @@ class Investigator:
         self._today = today
         self._trace_dir = trace_dir
 
-    async def run_investigation(self, user: UserContext, question: str) -> InvestigationResult:
+    async def run_investigation(
+        self,
+        user: UserContext,
+        question: str,
+        *,
+        investigation_id: str | None = None,
+        on_event: TraceListener | None = None,
+    ) -> InvestigationResult:
         """Investigate one question for one verified user.
 
         Args:
             user: Verified session identity (role and category scope).
             question: The user's question (untrusted).
+            investigation_id: Id chosen by the caller (the API's queue), new by default.
+            on_event: Called with every trace event as it happens (live progress).
 
         Returns:
             The result: completed, incomplete, escalated or rejected, with report, scores,
             claims, evidence, proposals and trace.
+
+        Raises:
+            ValueError: If investigation_id does not look like inv-<16 hex>.
         """
-        investigation_id = new_investigation_id()
+        investigation_id = investigation_id or new_investigation_id()
+        if not INVESTIGATION_ID_PATTERN.fullmatch(investigation_id):
+            raise ValueError("invalid investigation id")
         token = investigation_id_var.set(investigation_id)
         started = time.monotonic()
         tools = ToolContext(
@@ -289,6 +310,7 @@ class Investigator:
             board_client=self._board_client,
             investigation_id=investigation_id,
             trace_path=trace_path,
+            on_event=on_event,
         )
         run.question = question
         logger.info(

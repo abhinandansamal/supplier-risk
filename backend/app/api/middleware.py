@@ -1,4 +1,4 @@
-"""Pure ASGI middleware: request id and access log, and the request body size limit."""
+"""Pure ASGI middleware: request id and access log, body size limit, security headers."""
 
 import logging
 import re
@@ -140,3 +140,48 @@ def current_request_id_from(scope: Scope) -> str:
     """Return the request id stored in the ASGI scope, or 'unknown'."""
     state = scope.get("state") or {}
     return str(state.get("request_id", "unknown")) if isinstance(state, dict) else "unknown"
+
+
+# Security (T9): only same-origin scripts, styles and connections; no inline code, no framing.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+    "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
+# FastAPI's dev docs load their UI from a CDN; they exist only with APP_ENV=dev.
+_DOCS_PATHS = ("/docs", "/redoc")
+
+
+class SecurityHeadersMiddleware:
+    """Add the security headers to every response; API responses are never cached."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap an ASGI app."""
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Handle one ASGI call."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path = str(scope["path"])
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in _SECURITY_HEADERS.items():
+                    if name == "Content-Security-Policy" and path.startswith(_DOCS_PATHS):
+                        continue
+                    headers[name] = value
+                if path.startswith("/api/"):
+                    headers["Cache-Control"] = "no-store"
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
