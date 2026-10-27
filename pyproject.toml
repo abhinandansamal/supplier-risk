@@ -47,6 +47,8 @@ max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = ["D101", "D103", "S101", "S105", "S106", "ANN201"]
+# Writes SQL files offline from constants and the validated suppliers.yaml; no input reaches it.
+"data_pipeline/zetaris_sql/generate.py" = ["S608"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -57,5 +59,8 @@ files = ["backend/app", "scripts", "data_pipeline"]
 testpaths = ["backend/tests"]
 pythonpath = ["backend", "."]
 asyncio_mode = "auto"
-markers = ["integration: needs local services"]
+markers = [
+    "integration: needs local services",
+    "slow_live: integration test on a live SEC/Eurostat view (minutes until cached)",
+]
 addopts = "-ra --junitxml=reports/junit.xml --cov=backend/app --cov=scripts --cov=data_pipeline --cov-report=term-missing --cov-report=xml:reports/coverage.xml"

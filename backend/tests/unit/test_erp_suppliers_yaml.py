@@ -61,6 +61,11 @@ def test_ciks_are_unique_ten_digit_strings():
         {"revenue_tag": None},
         {"cik": None},
         {"name": ""},
+        {"site_lat": 45.28},
+        {"site_lon": 5.88},
+        {"site_lat": 95.0, "site_lon": 5.88},
+        {"site_lat": 45.28, "site_lon": 200.0},
+        {"site_lat": 10.0, "site_lon": 5.88},
     ],
 )
 def test_rejects_invalid_supplier(changes: dict[str, object]):
@@ -78,3 +83,17 @@ def test_rejects_duplicate_ids(tmp_path: Path):
 def test_rejects_unknown_fields():
     with pytest.raises(ValidationError):
         Supplier(**_valid(email="x@example.invalid"))  # type: ignore[arg-type]
+
+
+def test_site_coordinates_are_optional():
+    supplier = Supplier(**_valid())  # type: ignore[arg-type]
+    assert supplier.site_lat is None and supplier.site_lon is None
+
+
+def test_story_3_supplier_is_in_france_at_a_real_industrial_site():
+    """S0009 sits in the Crolles industrial area (Isere), 45 deg 17 N, 5 deg 53 E."""
+    s0009 = {s.supplier_id: s for s in load_suppliers()}["S0009"]
+    assert s0009.country_iso == "FR"
+    assert (s0009.site_lat, s0009.site_lon) == (45.2833, 5.8833)
+    # Fictional French company (checked against the French company register, 0 matches).
+    assert s0009.name == "Grésivolt Électronique SAS"

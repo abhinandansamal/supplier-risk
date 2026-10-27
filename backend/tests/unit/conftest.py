@@ -13,7 +13,9 @@ from app.llm.rate_limiter import AsyncRateLimiter
 FAKE_ENV: dict[str, str] = {
     "ZETARIS_REST_URL": "http://localhost:8888/api/v1.0",
     "ZETARIS_ORG_ID": "org-test",
-    "ZETARIS_APP_API_KEY": "zk-secret-VALUE-1111",
+    "ZETARIS_KEY_RISK": "zk-secret-VALUE-1111",
+    "ZETARIS_KEY_BUYER": "zk-buyer-VALUE-5555",
+    "ZETARIS_ADMIN_API_KEY": "zk-admin-VALUE-6666",
     "ZETARIS_USER_AGENT": "supplier-risk test@example.com",
     "METERLESS_BASE_URL": "http://127.0.0.1:8088/v1",
     "METERLESS_RUNTIME_TOKEN": "mt-secret-VALUE-2222",

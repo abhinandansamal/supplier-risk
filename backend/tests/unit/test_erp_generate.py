@@ -55,7 +55,7 @@ def test_today_defaults_to_the_run_date_on_the_command_line():
     assert gen.parse_args([]).today == date.today()
     assert gen.parse_args(["--today", "2026-01-31"]).today == date(2026, 1, 31)
     assert gen.parse_args([]).seed == 42
-    assert gen.parse_args([]).worsening_country == "CZ"
+    assert gen.parse_args([]).worsening_country == "FR"
 
 
 # --- shape -------------------------------------------------------------------------------------
@@ -206,7 +206,9 @@ def _late_rates(data: gen.ErpData) -> dict[str, tuple[float, float]]:
     return rates
 
 
-def test_story_1_one_supplier_has_rising_late_deliveries(data: gen.ErpData):
+def test_story_1a_microchip_has_rising_late_deliveries(data: gen.ErpData):
+    """Story 1a: operational risk (late deliveries rise) while EDGAR revenue recovers."""
+    assert data.stories.late_supplier_id == "S0003"
     rates = _late_rates(data)
     first, second = rates[data.stories.late_supplier_id]
     assert second >= 0.35
@@ -216,9 +218,39 @@ def test_story_1_one_supplier_has_rising_late_deliveries(data: gen.ErpData):
             assert other_second < 0.30, supplier
 
 
-def test_story_1_supplier_is_public(data: gen.ErpData):
+def test_story_1a_supplier_is_public(data: gen.ErpData):
     suppliers = _by(data.tables["suppliers"], "supplier_id")
     assert suppliers[data.stories.late_supplier_id]["cik"] is not None
+
+
+def test_story_1b_celanese_is_public_and_sited_in_the_worsening_country(data: gen.ErpData):
+    """Story 1b: real falling EDGAR revenue (FY2025 -7.1 %) plus site country FR; no ERP plant."""
+    suppliers = _by(data.tables["suppliers"], "supplier_id")
+    celanese = suppliers["S0005"]
+    assert celanese["cik"] == "0001306830"
+    assert celanese["country_iso"] == data.stories.worsening_country == "FR"
+
+
+# --- signals the agent should find (emergent at seed 42, today 2026-10-27) -----------------
+
+
+def test_signal_overdue_open_orders(data: gen.ErpData):
+    """34 of 141 open orders are past due (earliest 2026-10-15); S0003 has the most."""
+    open_orders = [r for r in data.tables["purchase_orders"] if r["status"] == "open"]
+    overdue = [r for r in open_orders if r["due_date"] < TODAY]
+    assert len(open_orders) == 141
+    assert len(overdue) == 34
+    assert min(r["due_date"] for r in open_orders) == date(2026, 10, 15)
+    per_supplier = Counter(r["supplier_id"] for r in overdue)
+    assert per_supplier.most_common(1) == [("S0003", 6)]
+    deliveries = _by(data.tables["deliveries"], "po_id")
+    assert all(deliveries[r["po_id"]]["delivered_date"] is None for r in overdue)
+
+
+def test_signal_one_contract_already_ended(data: gen.ErpData):
+    """Microchip's contract ended on 2026-09-28, before the run date; no other has ended."""
+    ended = [r for r in data.tables["contracts"] if r["end_date"] < TODAY]
+    assert [(r["supplier_id"], r["end_date"]) for r in ended] == [("S0003", date(2026, 9, 28))]
 
 
 def test_story_2_exactly_one_single_source_a_part_with_a_large_open_order(data: gen.ErpData):
@@ -242,18 +274,34 @@ def test_story_2_exactly_one_single_source_a_part_with_a_large_open_order(data: 
     assert max(open_values) == max(story_values)
 
 
-def test_story_3_one_supplier_sits_in_the_worsening_country(data: gen.ErpData):
+def test_story_3_supplier_sits_in_the_worsening_country(data: gen.ErpData):
+    """FR worsens most on Eurostat (devlog 2026-10-27); S0009 sits at its real French site."""
     suppliers = _by(data.tables["suppliers"], "supplier_id")
-    assert data.stories.worsening_country == "CZ"
-    assert suppliers[data.stories.worsening_supplier_id]["country_iso"] == "CZ"
-    assert Counter(r["country_iso"] for r in suppliers.values())["CZ"] == 1
+    assert data.stories.worsening_country == "FR"
+    story = suppliers[data.stories.worsening_supplier_id]
+    assert story["supplier_id"] == "S0009"
+    assert story["country_iso"] == "FR"
+    assert (story["site_lat"], story["site_lon"]) == (45.2833, 5.8833)
+    assert Counter(r["country_iso"] for r in suppliers.values())["CZ"] == 0
 
 
 def test_story_3_country_is_a_single_parameter():
     other = gen.generate(today=TODAY, worsening_country="PL")
     assert other.stories.worsening_country == "PL"
     suppliers = _by(other.tables["suppliers"], "supplier_id")
-    assert suppliers[other.stories.worsening_supplier_id]["country_iso"] == "PL"
+    story = suppliers[other.stories.worsening_supplier_id]
+    assert story["country_iso"] == "PL"
+    # The yaml coordinates are French; another country gets a site near its own centre.
+    lat, lon = gen.COUNTRY_CENTRE["PL"]
+    assert abs(story["site_lat"] - lat) < 4 and abs(story["site_lon"] - lon) < 4
+
+
+def test_moving_story_3_does_not_change_other_suppliers(data: gen.ErpData):
+    """Coordinates from the yaml must not shift the random stream for everyone else."""
+    other = gen.generate(today=TODAY, worsening_country="PL")
+    for mine, theirs in zip(data.tables["suppliers"], other.tables["suppliers"], strict=True):
+        if mine["supplier_id"] != "S0009":
+            assert mine == theirs
 
 
 @pytest.mark.parametrize("country", ["US", "cz", "", "XX"])
@@ -304,7 +352,28 @@ def test_csv_round_trips_row_counts(data: gen.ErpData, tmp_path: Path):
 
 def test_data_card_documents_each_story_and_the_synthetic_labels():
     card = (ROOT / "docs" / "data-card.md").read_text(encoding="utf-8")
-    for needle in ("Story 1", "Story 2", "Story 3", "Story 4", "synthetic", "seed 42"):
+    for needle in ("Story 1a", "Story 1b", "Story 2", "Story 3", "Story 4", "synthetic", "seed 42"):
+        assert needle in card, needle
+
+
+def test_data_card_states_story_1_with_the_real_sec_numbers_and_rules():
+    card = (ROOT / "docs" / "data-card.md").read_text(encoding="utf-8")
+    for needle in (
+        "2025-04-01 to 2026-03-31",  # Microchip FY2026
+        "4,713.1",
+        "+7.1 %",
+        "2026-04-01 to 2026-06-30",  # Microchip latest quarter
+        "1,484.7",
+        "+38.0 %",
+        "2025-01-01 to 2025-12-31",  # Celanese FY2025
+        "9,544.0",
+        "10,268.0",  # Celanese FY2024 as restated in the FY2025 10-K
+        "-7.1 %",
+        "hypothesis",
+        "never tuned",
+        "2026-10-15",  # overdue open orders
+        "2026-09-28",  # ended contract
+    ):
         assert needle in card, needle
 
 

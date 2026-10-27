@@ -1,43 +1,70 @@
 """Verify the SEC CIKs and revenue tags of the public suppliers in data_pipeline/suppliers.yaml.
 
-Usage (the declared User-Agent comes from the environment, never from a file):
-    ZETARIS_USER_AGENT="<name> <email>" uv run python scripts/verify_ciks.py lookup TXN ADI
-    ZETARIS_USER_AGENT="<name> <email>" uv run python scripts/verify_ciks.py verify
+Usage (the declared User-Agent is ZETARIS_USER_AGENT from the settings, i.e. .env):
+    uv run python scripts/verify_ciks.py lookup TXN ADI
+    uv run python scripts/verify_ciks.py verify
 
 `lookup` maps tickers to CIKs through the SEC ticker file. `verify` checks every supplier with a
-CIK: the submissions endpoint must answer, and a us-gaap revenue tag must exist on the
-companyconcept endpoint. It prints Markdown rows for docs/data-contract.md. At most 2 requests/s.
+CIK: the submissions endpoint must answer, and of the candidate us-gaap revenue tags the one
+with the latest period end must be the tag in suppliers.yaml and must be fresh (filers move
+revenue to another tag over time, and the old tag silently stops; SEC-036). It prints Markdown
+rows for docs/data-contract.md. At most 2 requests/s.
 """
 
-import os
 import re
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 import yaml
 
+# The backend is not an installed package; make `app` importable when run as a script.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+from app.core.settings import SettingsError, load_settings  # noqa: E402
+
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 CONCEPT_URL = "https://data.sec.gov/api/xbrl/companyconcept/CIK{cik}/us-gaap/{tag}.json"
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
-REVENUE_TAGS = ("Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax")
+REVENUE_TAGS = (
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+)
+# Quarterly filers report within about 45 days of a quarter end; 9 months also covers a
+# late annual report. Older data means the filer moved to another tag (or stopped filing).
+MAX_AGE_DAYS = 275
 MIN_INTERVAL_SECONDS = 0.5  # 2 requests per second
+_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 SUPPLIERS_YAML = Path(__file__).resolve().parents[1] / "data_pipeline" / "suppliers.yaml"
-USER_AGENT_ENV = "ZETARIS_USER_AGENT"
 TIMEOUT_SECONDS = 20
 
 
 @dataclass(frozen=True)
 class CikCheck:
-    """Outcome of verifying one CIK."""
+    """Outcome of verifying one CIK.
+
+    Attributes:
+        cik: 10-digit CIK.
+        entity_name: Name from the submissions endpoint, None if the CIK is unknown.
+        revenue_tag: Candidate tag with the latest period end, None if no tag has data.
+        ok: True if that tag is fresh and (when given) equals the expected tag.
+        latest_end: Latest period end (YYYY-MM-DD) of revenue_tag.
+        tag_ends: Latest period end per candidate tag (None = missing or no USD facts).
+        reason: Why the check failed, empty when ok.
+    """
 
     cik: str
     entity_name: str | None
     revenue_tag: str | None
     ok: bool
+    latest_end: str | None = None
+    tag_ends: dict[str, str | None] = field(default_factory=dict)
+    reason: str = ""
 
 
 class _Throttle:
@@ -73,31 +100,82 @@ def lookup_ticker(client: httpx.Client, ticker: str) -> tuple[int, str] | None:
     return None
 
 
+def _latest_end(response: httpx.Response) -> str | None:
+    """Return the latest USD fact end date (YYYY-MM-DD) of a concept response, or None."""
+    if response.status_code != httpx.codes.OK:
+        return None
+    try:
+        facts = response.json().get("units", {}).get("USD", [])
+    except (ValueError, AttributeError):
+        return None
+    ends = [
+        f["end"]
+        for f in facts
+        if isinstance(f, dict) and isinstance(f.get("end"), str) and _DATE.fullmatch(f["end"])
+    ]
+    return max(ends, default=None)
+
+
+def _verdict(tag: str | None, latest: str | None, expected_tag: str | None, today: date) -> str:
+    """Return why the check fails, or an empty string when it passes."""
+    if tag is None or latest is None:
+        return "no revenue tag with USD facts"
+    if expected_tag is not None and tag != expected_tag:
+        return f"suppliers.yaml has {expected_tag}"
+    if date.fromisoformat(latest) < today - timedelta(days=MAX_AGE_DAYS):
+        return f"stale: latest period ends {latest}"
+    return ""
+
+
 def verify_cik(
-    client: httpx.Client, cik: int | str, min_interval: float = MIN_INTERVAL_SECONDS
+    client: httpx.Client,
+    cik: int | str,
+    min_interval: float = MIN_INTERVAL_SECONDS,
+    *,
+    expected_tag: str | None = None,
+    today: date | None = None,
 ) -> CikCheck:
-    """Check that the CIK exists and has a us-gaap revenue tag with data."""
+    """Check that the CIK exists and find its freshest revenue tag.
+
+    Args:
+        client: HTTP client that sends the declared User-Agent.
+        cik: CIK in any padding.
+        min_interval: Minimum seconds between requests.
+        expected_tag: Tag from suppliers.yaml; the check fails if another tag is fresher.
+        today: Reference date for freshness (default: today).
+
+    Returns:
+        The check, with the latest period end of every candidate tag.
+    """
     padded = pad_cik(cik)
     throttle = _Throttle(min_interval)
     throttle.wait()
     response = client.get(SUBMISSIONS_URL.format(cik=padded))
     if response.status_code != httpx.codes.OK:
-        return CikCheck(padded, None, None, ok=False)
+        return CikCheck(padded, None, None, ok=False, reason="unknown CIK")
     name = str(response.json().get("name", ""))
-    for tag in REVENUE_TAGS:
+    tag_ends: dict[str, str | None] = {}
+    for candidate in REVENUE_TAGS:
         throttle.wait()
-        concept = client.get(CONCEPT_URL.format(cik=padded, tag=tag))
-        if concept.status_code == httpx.codes.OK:
-            return CikCheck(padded, name, tag, ok=True)
-    return CikCheck(padded, name, None, ok=False)
+        url = CONCEPT_URL.format(cik=padded, tag=candidate)
+        tag_ends[candidate] = _latest_end(client.get(url))
+    dated = [(end, t) for t, end in tag_ends.items() if end is not None]
+    # Latest end wins; on a tie the earlier candidate (REVENUE_TAGS order) wins.
+    best = max(dated, key=lambda d: (d[0], -REVENUE_TAGS.index(d[1])), default=None)
+    latest: str | None = best[0] if best else None
+    tag: str | None = best[1] if best else None
+    reason = _verdict(tag, latest, expected_tag, today or date.today())
+    return CikCheck(padded, name, tag, not reason, latest, tag_ends, reason)
 
 
 def markdown_row(supplier_id: str, name: str, check: CikCheck) -> str:
     """Format one check as a Markdown table row (no request headers are ever included)."""
-    status = "PASS" if check.ok else "FAIL"
+    status = "PASS" if check.ok else f"FAIL: {check.reason}"
+    tag = f"{check.revenue_tag} (to {check.latest_end})" if check.latest_end else "-"
+    if check.revenue_tag and not check.latest_end:
+        tag = check.revenue_tag
     return (
-        f"| {supplier_id} | {name} | {check.cik} | {check.entity_name or '-'} "
-        f"| {check.revenue_tag or '-'} | {status} |"
+        f"| {supplier_id} | {name} | {check.cik} | {check.entity_name or '-'} | {tag} | {status} |"
     )
 
 
@@ -110,16 +188,29 @@ def _load_suppliers() -> list[dict[str, Any]]:
     return list(data["suppliers"])
 
 
+def user_agent(env_file: str | None = ".env") -> str | None:
+    """Return ZETARIS_USER_AGENT from the settings, or None (with a message) if invalid.
+
+    Args:
+        env_file: Dotenv file to read, or None to read only the environment (tests).
+    """
+    try:
+        return load_settings(env_file=env_file).zetaris_user_agent
+    except SettingsError as exc:
+        # The message names the variables only, never their values.
+        print(f"{exc} (ZETARIS_USER_AGENT must hold a name and an email).", file=sys.stderr)
+        return None
+
+
 def main(argv: list[str]) -> int:
     """Run `lookup <tickers...>` or `verify`; return the process exit code."""
-    user_agent = os.environ.get(USER_AGENT_ENV, "").strip()
-    if not user_agent:
-        print(f"Set {USER_AGENT_ENV} in the environment (name and email).", file=sys.stderr)
+    agent = user_agent()
+    if not agent:
         return 2
     if not argv or argv[0] not in {"lookup", "verify"}:
         print("usage: verify_ciks.py lookup <ticker>... | verify", file=sys.stderr)
         return 2
-    with _client(user_agent) as client:
+    with _client(agent) as client:
         if argv[0] == "lookup":
             throttle = _Throttle(MIN_INTERVAL_SECONDS)
             for ticker in argv[1:]:
@@ -131,7 +222,7 @@ def main(argv: list[str]) -> int:
         for supplier in _load_suppliers():
             if supplier["cik"] is None:
                 continue
-            check = verify_cik(client, supplier["cik"])
+            check = verify_cik(client, supplier["cik"], expected_tag=supplier["revenue_tag"])
             failures += 0 if check.ok else 1
             print(markdown_row(supplier["supplier_id"], supplier["name"], check))
         return 1 if failures else 0

@@ -20,6 +20,8 @@ logger = logging.getLogger("app.test_redaction")
 
 SETTING_SECRETS = [
     "zk-secret-VALUE-1111",
+    "zk-buyer-VALUE-5555",
+    "zk-admin-VALUE-6666",
     "mt-secret-VALUE-2222",
     "erp-pass-VALUE-3333",
     "app-pass-VALUE-4444",

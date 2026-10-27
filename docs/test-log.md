@@ -9,3 +9,4 @@ GitHub Actions run page (job summary) with the JUnit and coverage reports as art
 | 2026-10-27 | feat/core | 130/0/0/10 | not run (no services touched) | 97 % | [details](test-runs/2026-10-27-feat-core.md) |
 | 2026-10-27 | feat/llm-client | 392/0/0/12 | 5/5 live Nightshift (final run; cache-hit failure fixed) | 97 % | [details](test-runs/2026-10-27-feat-llm-client.md) |
 | 2026-10-27 | feat/erp-data | 473/0/0/21 | 10/0/0/1 live erp-db (zetaris_reader); Zetaris/Nightshift not needed | 98 % | [details](test-runs/2026-10-27-feat-erp-data.md) |
+| 2026-10-27 | feat/zetaris-data | 682/0/0/38 | 21/2/0/0 live Zetaris, then story re-run 7/0/0/0 (v_country_indicators: upstream Eurostat 400, intermittent, fixed by Feature 5 caching; Celanese FY2024 restated, story 1b updated) | 97 % | [details](test-runs/2026-10-27-feat-zetaris-data.md) |

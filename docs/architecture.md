@@ -92,7 +92,7 @@ Sources are registered once (admin key, onboarding only), modelled into views, s
 | deliveries | po\_id, promised\_date, delivered\_date |
 | contracts | supplier\_id, annual\_value\_eur, end\_date, buyer\_notes (free text) |
 
-Planted demo stories (documented in `docs/data-card.md`): one supplier with falling EDGAR revenue and rising late deliveries; one in a country with worsening indicators; one single-source A-part with a large open order; one `buyer_notes` text containing a prompt-injection sentence, which is a built-in red-team test.
+Demo stories (documented in `docs/data-card.md`, real public data only): one supplier with rising late deliveries while its EDGAR revenue recovers (operational risk, 1a); one supplier with real falling EDGAR revenue sited in the worsening country (1b); one in a country with worsening indicators; one single-source A-part with a large open order; one `buyer_notes` text containing a prompt-injection sentence, which is a built-in red-team test.
 
 ### 3.3 Pipeline: discover, register, model, check
 
@@ -223,7 +223,7 @@ All calls go through one client: shared rate limiter (30/min), at most 2 concurr
 | Country | Change in chosen Eurostat indicators | 15 |
 | Weather | Extreme-weather months near the site (not assessed if NOAA is cut) | 15 |
 
-Weights are a documented design choice, versioned (`weights_version`) and shown in the UI.
+Weights are a documented design choice, versioned (`weights_version`) and shown in the UI. They are never tuned to get a particular colour for a demo supplier; the score decides.
 
 ### 6.6 Prompts
 
@@ -537,7 +537,7 @@ The design follows the roadmap and the system-design checklists; the differences
 
 ### 14.3 Follow-ups for the repo (small)
 
-- [ ] Replace the single `ZETARIS_APP_API_KEY` in `.env.example` with one key per role user (e.g. `ZETARIS_KEY_BUYER`, `ZETARIS_KEY_RISK`, `ZETARIS_KEY_AUDITOR`) when the data-access feature is built.
+- [x] Replace the single `ZETARIS_APP_API_KEY` in `.env.example` with one key per role user: `ZETARIS_KEY_BUYER`, `ZETARIS_KEY_RISK` (also used for director); the auditor reads only the app database, so no auditor key. The admin key is `ZETARIS_ADMIN_API_KEY`, setup only (feat/zetaris-data, docs/zetaris-setup.md).
 - [ ] Add `docs/threat-model.md`, `docs/data-card.md` and `docs/data-contract.md` during the data feature.
 
 ### 14.4 Risks

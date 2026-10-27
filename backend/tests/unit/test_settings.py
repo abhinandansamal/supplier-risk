@@ -8,7 +8,9 @@ from pydantic import SecretStr, ValidationError
 from app.core.settings import Settings, SettingsError, load_settings
 
 SECRET_FIELDS = (
-    "zetaris_app_api_key",
+    "zetaris_admin_api_key",
+    "zetaris_key_buyer",
+    "zetaris_key_risk",
     "meterless_runtime_token",
     "erp_database_url",
     "app_database_url",
@@ -49,13 +51,39 @@ def test_secret_values_include_every_secret_and_database_passwords(settings: Set
 def test_missing_required_value_names_the_variable(
     env: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("ZETARIS_APP_API_KEY")
+    monkeypatch.delenv("METERLESS_RUNTIME_TOKEN")
     with pytest.raises(SettingsError) as info:
         load_settings(env_file=None)
     message = str(info.value)
-    assert "ZETARIS_APP_API_KEY" in message
+    assert "METERLESS_RUNTIME_TOKEN" in message
     for value in env.values():
         assert value not in message
+
+
+@pytest.mark.parametrize("name", ["ZETARIS_ADMIN_API_KEY", "ZETARIS_KEY_BUYER", "ZETARIS_KEY_RISK"])
+@pytest.mark.parametrize("unset", ["delete", "empty", "blank"])
+def test_zetaris_keys_are_optional_and_empty_means_unset(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, name: str, unset: str
+) -> None:
+    """The role keys are pasted later (docs/zetaris-setup.md); a missing one is not a crash."""
+    if unset == "delete":
+        monkeypatch.delenv(name)
+    else:
+        monkeypatch.setenv(name, "" if unset == "empty" else "   ")
+    settings = load_settings(env_file=None)
+    assert getattr(settings, name.lower()) is None
+
+
+def test_the_retired_app_key_variable_is_not_read(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ZETARIS_APP_API_KEY held an admin key; no setting may pick it up any more."""
+    monkeypatch.setenv("ZETARIS_APP_API_KEY", "zk-old-admin-VALUE-7777")
+    settings = load_settings(env_file=None)
+    assert "zk-old-admin-VALUE-7777" not in [
+        getattr(settings, f).get_secret_value() for f in SECRET_FIELDS
+    ]
+    assert not hasattr(settings, "zetaris_app_api_key")
 
 
 def test_reports_all_missing_variables_at_once(

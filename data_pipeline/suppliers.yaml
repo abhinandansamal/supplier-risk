@@ -1,6 +1,7 @@
 # The 12 suppliers of a (fictional) European manufacturer.
 # Public suppliers are real US-listed companies; their CIKs and revenue tags are verified with
-# scripts/verify_ciks.py (results in docs/data-contract.md). Private suppliers are fictional.
+# scripts/verify_ciks.py (freshest tag by latest period end; results in docs/data-contract.md).
+# Private suppliers are fictional.
 # country_iso is the (synthetic) site country: it does not describe the real company.
 suppliers:
   - supplier_id: S0001
@@ -14,13 +15,13 @@ suppliers:
     cik: "0000006281"
     category: electronics
     country_iso: IT
-    revenue_tag: Revenues
+    revenue_tag: RevenueFromContractWithCustomerExcludingAssessedTax
   - supplier_id: S0003
     name: "Microchip Technology Incorporated"
     cik: "0000827054"
     category: electronics
     country_iso: PL
-    revenue_tag: Revenues
+    revenue_tag: RevenueFromContractWithCustomerExcludingAssessedTax
   - supplier_id: S0004
     name: "Dow Inc."
     cik: "0001751788"
@@ -44,18 +45,22 @@ suppliers:
     cik: "0000073309"
     category: metals
     country_iso: PL
-    revenue_tag: Revenues
+    revenue_tag: RevenueFromContractWithCustomerExcludingAssessedTax
   - supplier_id: S0008
     name: "United Parcel Service, Inc."
     cik: "0001090727"
     category: logistics
     country_iso: DE
-    revenue_tag: Revenues
+    revenue_tag: RevenueFromContractWithCustomerExcludingAssessedTax
   - supplier_id: S0009
-    name: "Brnovia Elektronik s.r.o."
+    name: "Grésivolt Électronique SAS"
     cik: null
     category: electronics
-    country_iso: CZ
+    # Story 3 (worsening country): FR worsens most on Eurostat (devlog 2026-10-27).
+    # Real industrial site: Crolles industrial area, Isere (45 deg 17 N, 5 deg 53 E).
+    country_iso: FR
+    site_lat: 45.2833
+    site_lon: 5.8833
     revenue_tag: null
   - supplier_id: S0010
     name: "Chemiva Industrial S.L."

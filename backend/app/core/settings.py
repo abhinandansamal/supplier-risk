@@ -29,7 +29,7 @@ LOCAL_HTTP_HOSTS = frozenset({"localhost", "host.docker.internal"})
 _METERLESS_ENDPOINT_SUFFIXES = ("/healthz", "/chat/completions", "/models", "/embeddings")
 
 
-def _is_local_host(host: str) -> bool:
+def is_local_host(host: str) -> bool:
     """Return True for loopback addresses and the names that reach the local runtime."""
     if host.lower() in LOCAL_HTTP_HOSTS:
         return True
@@ -71,7 +71,7 @@ def normalize_meterless_url(raw: str) -> str:
     except ValueError:
         raise ValueError("has an invalid port") from None
     # Security: the bearer token must not cross a network in clear text.
-    if parts.scheme == "http" and not _is_local_host(parts.hostname):
+    if parts.scheme == "http" and not is_local_host(parts.hostname):
         raise ValueError("must use https for a non-local runtime")
     path = parts.path.rstrip("/")
     for suffix in _METERLESS_ENDPOINT_SUFFIXES:
@@ -94,7 +94,9 @@ class Settings(BaseSettings):
     Attributes:
         zetaris_rest_url: Base URL of the Zetaris REST API.
         zetaris_org_id: Zetaris organisation id (X-Org-ID).
-        zetaris_app_api_key: Read-only app user key for Zetaris.
+        zetaris_admin_api_key: Zetaris admin key for setup scripts only; never used at runtime.
+        zetaris_key_buyer: API key of the Zetaris user svc_buyer (role buyer).
+        zetaris_key_risk: API key of the Zetaris user svc_risk (role risk_manager; director too).
         zetaris_user_agent: User agent sent to external sources.
         meterless_base_url: OpenAI-compatible Nightshift URL.
         meterless_runtime_token: Nightshift runtime token.
@@ -116,7 +118,12 @@ class Settings(BaseSettings):
 
     zetaris_rest_url: NonEmptyStr
     zetaris_org_id: NonEmptyStr
-    zetaris_app_api_key: SecretStr
+    # Security: admin, setup only, never used at runtime (the Zetaris client refuses it).
+    zetaris_admin_api_key: SecretStr | None = None
+    # Optional so the app starts before the role users exist (docs/zetaris-setup.md); the
+    # Zetaris client refuses to start for a role whose key is missing.
+    zetaris_key_buyer: SecretStr | None = None
+    zetaris_key_risk: SecretStr | None = None
     zetaris_user_agent: NonEmptyStr
     meterless_base_url: NonEmptyStr
     meterless_runtime_token: SecretStr
@@ -139,13 +146,23 @@ class Settings(BaseSettings):
     def _upper_level(cls, value: object) -> object:
         return value.upper() if isinstance(value, str) else value
 
-    @field_validator(
-        "zetaris_app_api_key", "meterless_runtime_token", "erp_database_url", "app_database_url"
-    )
+    @field_validator("meterless_runtime_token", "erp_database_url", "app_database_url")
     @classmethod
     def _secret_not_empty(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():
             raise ValueError("must not be empty")
+        return value
+
+    @field_validator(
+        "zetaris_admin_api_key", "zetaris_key_buyer", "zetaris_key_risk", mode="before"
+    )
+    @classmethod
+    def _blank_key_is_unset(cls, value: object) -> object:
+        # .env.example ships these empty; an empty key means "not created yet".
+        if isinstance(value, str | SecretStr):
+            raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+            if not raw.strip():
+                return None
         return value
 
     @field_validator("meterless_base_url")

@@ -120,3 +120,103 @@ Times are Europe/Berlin. Secrets are never written here.
   services, databases or roles" (it altered zetaris_reader during its probe).
 - Follow-up: SEC-034 and SEC-036 (small) before Zetaris registration; use a pooler or SQL guard for SEC-032;
   confirm worsening country against Eurostat in the next feature.
+
+## 2026-10-27: feat/zetaris-data (Zetaris registration, risk views, role keys) - in progress
+- TODO: Feature 5 must add CACHE TABLE (or the app's tool cache) for SR_EDGAR and SR_EUROSTAT, because the load
+  test and the demo must never call SEC/Eurostat live per request. MANDATORY before the demo and the load test:
+  measured 2026-10-27 as svc_risk in the SQL Editor, `SELECT COUNT(1) FROM risk.v_country_indicators` took
+  3.5 minutes (live Eurostat, 12 REST calls) and `risk.v_open_orders_buyer` took 13 s (ERP over JDBC). The app's
+  Zetaris query timeout is 20 s, so uncached Eurostat views cannot serve an investigation at all.
+- Zetaris SQL engine (container zetaris-driver-1) found exited (code 56) since 25 Oct: the platform folder moved
+  from ~/Projects/zetaris-platform to ~/Projects/open-agent-hackathon-2026/zetaris-platform, and the container
+  still bind-mounts conf/spark-defaults.conf from the old path. The user fixes the install; registration waits.
+- Worsening country (story 3) decided 2026-10-27 from Eurostat (fetched 2026-10-27, same URLs as the Zetaris REST
+  tables): latest-6-month average minus previous-6-month average, in percentage points.
+  Unemployment (une_rt_m, 2026-03..08 vs 2025-09..2026-02): FR +0.25, PL +0.20, IT +0.12, DE +0.08, CZ +0.02,
+  ES -0.12. HICP annual rate (prc_hicp_minr, 2026-04..09 vs 2025-10..2026-03): IT +1.93, FR +1.65, ES +1.08,
+  PL +0.68, DE +0.55, CZ +0.08. Decision: FR (worsens on both; CZ worsened least). S0009 moved to FR in
+  suppliers.yaml with real coordinates of the Crolles industrial area, Isere (45.2833, 5.8833); new optional
+  site_lat/site_lon in suppliers.yaml (used only while the site country matches); generator default FR; ERP
+  regenerated (seed 42, today 2026-10-27; table sizes unchanged); the user resets erp-db.
+- Registered in Zetaris (runner, --skip-exists): 30_eurostat_countries 26/26 ok; all 12 series match curl
+  (une_rt_m 140 months 2015-01..2026-08, prc_hicp_minr 141 months 2015-01..2026-09). 20_edgar_suppliers 18/18 ok,
+  no SEC 429. EDGAR freshness (rows, period_end range): S0001 136 2016-12..2026-09, S0002 15 2016-10..2018-11,
+  S0003 17 2017-03..2019-06, S0004 94 2018-03..2026-09, S0005 104 2016-12..2026-06, S0006 132 2016-12..2026-06,
+  S0007 66 2018-03..2024-09, S0008 219 2007-12..2021-09. The `Revenues` tag is stale for S0002, S0003 (story 1),
+  S0007 and S0008 (filers moved to another tag; SEC-036 in practice). Fix pending the user's decision.
+- SEC-036 fixed (test first, xfail removed): verify_ciks.py reads ZETARIS_USER_AGENT through settings (.env), reads
+  the latest period_end of each candidate tag (Revenues, RevenueFromContractWithCustomer Excluding/Including
+  AssessedTax), picks the freshest, and fails if suppliers.yaml has another tag or the data is older than 275 days.
+- EDGAR REST tables are now named after the tag (sNNNN_<tag slug>_facts) and all EDGAR and risk views are
+  CREATE OR REPLACE, so a tag change adds a table and repoints the view; nothing is dropped in Zetaris.
+- S0009 renamed to "Grésivolt Électronique SAS" (fictional; 0 matches in recherche-entreprises.api.gouv.fr and a web
+  search on 2026-10-27). ERP regenerated (seed 42, today 2026-10-27, sizes unchanged), ready for the user's reset.
+- erp_pg registered by the user; Zetaris names tables erp_pg.<table>; counts match erp-db (12, 24, 50, 1603, 1555, 12); S0009 reads FR / Grésivolt. Tags of S0002,
+  S0003, S0007, S0008 changed to RevenueFromContractWithCustomerExcludingAssessedTax; 20_ re-run (8 new tag-named
+  tables, views replaced, 2 skipped, no 429); all 8 EDGAR views fresh (latest period ends match verify_ciks). 40_ run:
+  10/10 ok; all 9 risk views return rows (v_supplier_revenue 921, v_country_indicators 1686).
+- Microchip (S0003, story 1) from risk.v_supplier_revenue: FY2026 (2025-04-01..2026-03-31) 4,713.1 M USD vs FY2025
+  4,401.6 M (+7.1 %); FY2025 vs FY2024 (7,634.4 M) -42.3 %; latest quarter 2026-04-01..06-30 1,484.7 M vs 1,075.5 M
+  a year earlier (+38.0 %). Revenue is recovering, so "falling revenue" does not hold for the latest data; story
+  wording unchanged until the user decides.
+- Story decision (user, 2026-10-27), real data only:
+  - Story 1a, S0003 Microchip: late deliveries rise while revenue recovers, so the risk is operational, not
+    financial. EDGAR FY2026 (2025-04-01..2026-03-31) 4,713.1 M USD vs FY2025 (2024-04-01..2025-03-31) 4,401.6 M:
+    +7.1 %; latest quarter (2026-04-01..06-30) 1,484.7 M vs (2025-04-01..06-30) 1,075.5 M: +38.0 % YoY. ERP
+    late-delivery pattern kept.
+  - Story 1b, S0005 Celanese: falling revenue FY2025 (2025-01-01..12-31) 9,544.0 M vs FY2024 10,268.0 M (as
+    restated in the FY2025 10-K; first set to 10,280.0 M / -7.2 %, corrected below): -7.1 %,
+    site country FR (the worsening country). No ERP change.
+  - Signals the agent should find (seed 42, today 2026-10-27, pinned by unit tests): 34 of 141 open orders overdue
+    (earliest due 2026-10-15, S0003 most with 6); the S0003 contract ended 2026-09-28 (the only one).
+  - Rules: causes only as labelled hypotheses, never findings; risk-score weights/thresholds are never tuned to
+    get a colour. Integration test test_story_1_revenue_facts_match_sec pins the six SEC facts.
+  - No gold-case files exist yet (evals/gold is empty); the gold set should reuse these exact numbers.
+- Roles and users (the user, as admin, 2026-10-27): 60_ run in the SQL Editor; CREATE ROLE accepted only
+  descriptions without spaces or colons, and all 14 GRANTs succeeded. Users svc_buyer@supplier-risk.local (role
+  buyer) and svc_risk@supplier-risk.local (role risk_manager) created in the UI; nothing ticked on the Permissions
+  page (the SQL Workspace works without it). All per-user checks in docs/zetaris-setup.md passed: svc_buyer is
+  refused ("does not have privileges") on v_contracts_full, v_open_orders_full, erp_pg.contracts and
+  erp_pg.purchase_orders and reads v_open_orders_buyer; svc_risk is refused on erp_pg.contracts and reads all 9
+  views (12, 12, 141, 141, 50, 1555, 12, 921, 1686). The views work without any grant on the raw erp_pg tables,
+  the service users see no datasources in the Data Explorer, and svc_buyer's history shows only its own queries
+  (SEC-044 history check verified). ZETARIS_KEY_BUYER and ZETARIS_KEY_RISK set in .env by the user.
+- Timings as svc_risk: v_country_indicators 3.5 min (live Eurostat), v_open_orders_buyer 13 s (see the TODO
+  above).
+- Live runs with the role keys: with the client's 20 s timeout even ERP views timed out (ZetarisUnavailable).
+  ZetarisClient got an optional query_timeout (default 20 s, max 600 s); zetaris_verify.py and the integration
+  fixtures use 300 s, and tests on live SEC/Eurostat views are marked slow_live (run the rest with
+  -m "integration and not slow_live"). Then: integration 21 passed, 2 failed in 22 min (v_country_indicators got
+  a 400 after 348 s, not reproduced by the next verify run; Celanese FY2024 restated, below). zetaris_verify.py
+  now names a failing view and checks the rest; second run exit 0 in 2.5 min with all 9 counts as in the setup
+  doc. The app's 20 s default is borderline for every Zetaris view on this machine, not only the REST ones;
+  Feature 5 must cache or pre-materialise before the tools are built.
+- Celanese (S0005) FY2024 has two EDGAR facts: 10,280.0 M USD (FY2024 10-K) and 10,268.0 M (restated in the
+  FY2025 10-K). Decision (user, 2026-10-27): story 1b uses the restated figure, FY2025 9,544.0 M vs FY2024
+  10,268.0 M: -7.1 % (-7.05 %). v_supplier_revenue can hold several facts per period; tools always use the latest
+  filing (highest fiscal_year, then FY > Q3 > Q2 > Q1; docs/data-contract.md), and the story test checks exactly
+  that value.
+- Tests: generator, client, verify script, settings, story/signal facts, role descriptions (unit); 23 Zetaris
+  integration tests; 18 strict xfail security tests. Unit + security: 682 passed, 38 xfailed, coverage 97 %.
+- Security (security-breaker, unit level only): no Critical/High; SEC-045 to SEC-051 Medium, SEC-052 to SEC-060
+  Low, all open (docs/security-review.md). SEC-045 (no bound parameters / row scope) and SEC-047 (error JSON
+  reads as zero rows) must be fixed before backend/app/tools. SEC-036 fixed; SEC-044 history isolation verified.
+- Decisions: role keys only at runtime (admin key setup-only), director uses svc_risk, auditor no Zetaris key;
+  FR is the worsening country; stories 1a/1b on real data only; tag-named EDGAR tables and CREATE OR REPLACE
+  views, never DROP; role descriptions only [A-Za-z0-9_.,-].
+
+## Sponsor feedback
+- Zetaris (2026-10-27, SEC-044): the SQL Editor History keeps `CREATE DATASOURCE` statements in plain text,
+  including the JDBC password. Suggestion: redact `password "..."` options in the history (and in audit logs), or
+  offer a secret reference in `CREATE DATASOURCE` so the password never appears in SQL text.
+- Zetaris (2026-10-27): after the platform folder was moved, the driver container failed at start because its
+  bind mount (conf/spark-defaults.conf) pointed at the old path; Docker created empty folders there and the only
+  symptom in the SQL Editor was "HikariPool-1 - Connection is not available" after 300 s. A clearer driver-down
+  error from the API would save time.
+- Zetaris (2026-10-27): `CREATE ROLE ... DESCRIBE BY '...'` accepts only letters, digits and `_ . - ,` (no
+  spaces, no colons), unlike `CREATE DATASOURCE ... DESCRIBE BY`; the documented syntax does not mention this
+  limit. 60_ now uses 'Category_buyers,buyer_views_without_prices_or_contract_values' and
+  'Risk_managers_and_directors,all_risk_views', and a unit test checks every description against
+  ^[A-Za-z0-9_.,-]+$.
+- Zetaris (2026-10-27): a COUNT over a view on 12 live Eurostat REST tables took 3.5 minutes; a per-table
+  timing or a "live REST source" hint in the query plan would help to spot which source to cache.
