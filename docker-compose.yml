@@ -23,5 +23,44 @@ services:
       timeout: 3s
       retries: 20
 
+  # Meterless World Model case board (context-service/). Internal network only, no host port;
+  # docker-compose.dev.yml publishes 127.0.0.1:7070 for a backend running on the host.
+  context-service:
+    build: ./context-service
+    image: supplier-risk-context-service:local
+    container_name: supplier-risk-context-service
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=16m"]
+    environment:
+      CONTEXT_SERVICE_TOKEN: ${CONTEXT_SERVICE_TOKEN:?set CONTEXT_SERVICE_TOKEN in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - context_data:/data
+    networks:
+      - context_net
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:7070/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))
+      interval: 10s
+      # The engine writes its store synchronously, which can block /health for a few seconds.
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  # internal: no route to the host or the internet; the api container joins it later.
+  context_net:
+    internal: true
+
 volumes:
   erp_db_data:
+  context_data:

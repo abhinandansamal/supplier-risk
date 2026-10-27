@@ -44,3 +44,52 @@ jobs:
         with:
           name: reports
           path: reports/
+
+  context-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: context-service
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: context-service/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Vendored Meterless code is unchanged
+        run: npm run vendor:verify
+      - name: Vendored Meterless code matches upstream at the recorded commit
+        env:
+          METERLESS_REPO: https://github.com/Meterless/Meterless
+          METERLESS_SHA: 1742dec56a66e58eef9dda2d2b865823758ca8cd
+        run: |
+          set -euo pipefail
+          up="$RUNNER_TEMP/meterless"
+          git init -q "$up"
+          git -C "$up" remote add origin "$METERLESS_REPO"
+          git -C "$up" fetch -q --depth 1 origin "$METERLESS_SHA"
+          git -C "$up" checkout -q FETCH_HEAD
+          for part in reference conformance LICENSE; do
+            diff -r "$up/engines/world-model/$part" "vendor/world-model/$part"
+          done
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - name: World Model conformance (vendored reference)
+        run: npm run conformance:reference
+      - name: World Model conformance (module the wrapper loads)
+        run: npm run conformance:wrapper
+      - run: npm run build
+      - name: Dependency audit (runtime dependencies)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Image builds
+        run: docker build -t supplier-risk-context-service:ci .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: context-service-reports
+          path: context-service/reports/

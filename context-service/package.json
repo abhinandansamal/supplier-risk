@@ -1,0 +1,39 @@
+{
+  "name": "supplier-risk-context-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Internal HTTP wrapper around the vendored Meterless World Model reference (case board).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node24 --packages=external --outfile=dist/server.js",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format:check": "prettier --check src test scripts",
+    "format": "prettier --write src test scripts",
+    "conformance:reference": "tsx vendor/world-model/conformance/runner.ts",
+    "conformance:wrapper": "WORLD_MODEL_IMPL=src/engine.ts tsx vendor/world-model/conformance/runner.ts",
+    "vendor:verify": "node scripts/verify-vendor.mjs"
+  },
+  "dependencies": {
+    "fastify": "5.12.7",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "4.1.12"
+  }
+}

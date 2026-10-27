@@ -1,0 +1,13 @@
+# Local development only: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Publishes the context service on 127.0.0.1:7070 so a backend or integration tests running on
+# the host can reach it. An internal network cannot publish ports, so this adds a second network.
+services:
+  context-service:
+    ports:
+      - "127.0.0.1:7070:7070"
+    networks:
+      - context_net
+      - context_dev
+
+networks:
+  context_dev: {}

@@ -12,6 +12,7 @@ SECRET_FIELDS = (
     "zetaris_key_buyer",
     "zetaris_key_risk",
     "meterless_runtime_token",
+    "context_service_token",
     "erp_database_url",
     "app_database_url",
 )
@@ -267,3 +268,72 @@ def test_snapshot_cache_settings_are_bounded(
 ) -> None:
     with pytest.raises(ValidationError):
         make_settings(**overrides)
+
+
+@pytest.mark.parametrize("unset", ["delete", "empty", "blank"])
+def test_context_service_token_is_optional_and_empty_means_unset(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, unset: str
+) -> None:
+    """Without a token the agent runs without the case board (memory_unavailable)."""
+    if unset == "delete":
+        monkeypatch.delenv("CONTEXT_SERVICE_TOKEN")
+    else:
+        monkeypatch.setenv("CONTEXT_SERVICE_TOKEN", "" if unset == "empty" else "   ")
+    assert load_settings(env_file=None).context_service_token is None
+
+
+@pytest.mark.parametrize("token", ["short", "a" * 20 + " " + "b" * 20, "x" * 257])
+def test_context_service_token_must_be_long_visible_ascii(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, token: str
+) -> None:
+    monkeypatch.setenv("CONTEXT_SERVICE_TOKEN", token)
+    with pytest.raises(SettingsError) as info:
+        load_settings(env_file=None)
+    assert "CONTEXT_SERVICE_TOKEN" in str(info.value)
+    assert token not in str(info.value)
+
+
+def test_context_service_timeout_defaults_and_is_bounded(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert load_settings(env_file=None).context_service_timeout_seconds == 5.0
+    monkeypatch.setenv("CONTEXT_SERVICE_TIMEOUT_SECONDS", "0")
+    with pytest.raises(SettingsError):
+        load_settings(env_file=None)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://169.254.169.254/latest",
+        "http://evil.example.com/prefix",
+        "file:///etc/passwd",
+        "http://user:pw@localhost:7070",
+        "http://localhost:7070/?x=1",
+        "http://localhost:7070/#f",
+    ],
+)
+def test_context_service_url_rejects_unsafe_targets(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    """Security: SEC-081. The internal token must not travel in clear text or to odd hosts."""
+    monkeypatch.setenv("CONTEXT_SERVICE_URL", url)
+    with pytest.raises(SettingsError) as info:
+        load_settings(env_file=None)
+    assert "CONTEXT_SERVICE_URL" in str(info.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:7070",
+        "http://127.0.0.1:7070/",
+        "http://context-service:7070",
+        "https://board.example.com",
+    ],
+)
+def test_context_service_url_accepts_local_http_and_https(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("CONTEXT_SERVICE_URL", url)
+    assert load_settings(env_file=None).context_service_url == url.rstrip("/")
