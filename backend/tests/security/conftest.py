@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from tests.fakes.agent import investigate  # noqa: F401 - fixture for agent tests
 from tests.fakes.tools import (  # noqa: F401 - fixtures for tool tests
     fake,
     make_ctx,
