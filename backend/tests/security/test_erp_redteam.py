@@ -193,7 +193,6 @@ def test_rate_limit_holds_across_consecutive_ciks(monkeypatch: pytest.MonkeyPatc
     assert min(gaps) >= verify_ciks.MIN_INTERVAL_SECONDS - 1e-9
 
 
-@pytest.mark.xfail(strict=True, reason="SEC-036")
 def test_verify_fails_when_yaml_tag_differs_from_the_tag_found(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
@@ -206,7 +205,7 @@ def test_verify_fails_when_yaml_tag_differs_from_the_tag_found(
         return httpx.Response(200, json={"name": "X"})
 
     supplier = {"supplier_id": "S0002", "name": "A", "cik": "0000006281", "revenue_tag": "Revenues"}
-    monkeypatch.setenv(verify_ciks.USER_AGENT_ENV, UA)
+    monkeypatch.setattr(verify_ciks, "user_agent", lambda env_file=".env": UA)
     monkeypatch.setattr(verify_ciks, "_load_suppliers", lambda: [supplier])
     monkeypatch.setattr(verify_ciks, "_client", lambda ua: _client(httpx.MockTransport(handler)))
     monkeypatch.setattr(verify_ciks, "MIN_INTERVAL_SECONDS", 0)

@@ -53,7 +53,8 @@ Before submission: run the load-tester subagent and record results in docs/load-
 
 ## Sponsor technology (how to call it)
 - Zetaris (data layer, local install): POST {ZETARIS_REST_URL}/sql-editor/sqls/run with headers
-  Authorization: Bearer <ZETARIS_APP_API_KEY>, X-Org-ID, X-Request-ID (new UUID each call); body
+  Authorization: Bearer <role key: ZETARIS_KEY_RISK for the app, ZETARIS_KEY_BUYER for buyer-scoped calls;
+  ZETARIS_ADMIN_API_KEY is setup only, never at runtime>, X-Org-ID, X-Request-ID (new UUID each call); body
   {"queryId": <uuid>, "sql": ..., "source": "SqlEditor", "limit": n}. Response {"data": [[...]]} has rows as
   string lists without column names, so every query lists its columns explicitly. Lightning SQL, one statement,
   no trailing semicolon, no SELECT *. Fixed SQL templates in backend/app/tools only; never run model-written SQL.

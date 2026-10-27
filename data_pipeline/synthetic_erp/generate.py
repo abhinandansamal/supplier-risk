@@ -2,14 +2,15 @@
 
 Faker and numpy with a fixed seed give the same rows every run. "Today" is an argument, so tests
 use a fixed date. Four demo stories are planted (see docs/data-card.md):
-  1. one public supplier whose late deliveries rise over the 18 months,
+  1. one public supplier whose late deliveries rise over the 18 months (story 1a; story 1b is
+     real EDGAR and Eurostat data only, not planted here),
   2. one single-source A-part with a large open order,
-  3. one supplier sited in a country we will show as worsening (one parameter, default CZ),
+  3. one supplier sited in a country we will show as worsening (one parameter, default FR),
   4. one contract buyer_notes text with a prompt-injection sentence (red-team test).
 
 Usage:
     uv run python -m data_pipeline.synthetic_erp.generate [--seed 42] [--today YYYY-MM-DD]
-        [--worsening-country CZ] [--out data_pipeline/synthetic_erp/out]
+        [--worsening-country FR] [--out data_pipeline/synthetic_erp/out]
 """
 
 import argparse
@@ -33,7 +34,7 @@ DELIVERED_CUTOFF_DAYS = 15  # orders due earlier than this are delivered (or can
 POS_PER_MONTH = 7
 POS_PER_MONTH_LATE_SUPPLIER = 12
 
-LATE_SUPPLIER_ID = "S0003"  # story 1: Microchip, late deliveries rise
+LATE_SUPPLIER_ID = "S0003"  # story 1a: Microchip, late deliveries rise
 SINGLE_SOURCE_SUPPLIER_ID = "S0002"  # story 2: sole source of the A-part
 WORSENING_SUPPLIER_ID = "S0009"  # story 3: sited in the worsening country
 INJECTION_SUPPLIER_ID = "S0011"  # story 4: buyer note with an injection sentence
@@ -182,7 +183,7 @@ class Stories:
     """Where the four planted demo stories live.
 
     Attributes:
-        late_supplier_id: Supplier with rising late deliveries (story 1).
+        late_supplier_id: Supplier with rising late deliveries (story 1a).
         single_source_part_id: Single-source A-part with a large open order (story 2).
         single_source_supplier_id: The only supplier of that part (story 2).
         worsening_supplier_id: Supplier sited in the worsening country (story 3).
@@ -220,13 +221,25 @@ def _site_country(supplier: Supplier, worsening_country: str) -> str:
     return supplier.country_iso
 
 
+def _site(rng: np.random.Generator, supplier: Supplier, country: str) -> tuple[float, float]:
+    # Draw the jitter even when the yaml gives a real site, so the random stream (and every
+    # other supplier's data) does not depend on which suppliers have real coordinates.
+    lat, lon = COUNTRY_CENTRE[country]
+    jitter_lat, jitter_lon = float(rng.normal(0, 0.7)), float(rng.normal(0, 0.7))
+    # The yaml site belongs to the yaml country; a moved story-3 supplier gets a generated one.
+    if supplier.site_lat is not None and supplier.site_lon is not None:
+        if country == supplier.country_iso:
+            return supplier.site_lat, supplier.site_lon
+    return round(lat + jitter_lat, 4), round(lon + jitter_lon, 4)
+
+
 def _build_suppliers(
     rng: np.random.Generator, suppliers: list[Supplier], worsening_country: str
 ) -> list[dict[str, Any]]:
     rows = []
     for supplier in suppliers:
         country = _site_country(supplier, worsening_country)
-        lat, lon = COUNTRY_CENTRE[country]
+        site_lat, site_lon = _site(rng, supplier, country)
         rows.append(
             {
                 "supplier_id": supplier.supplier_id,
@@ -234,8 +247,8 @@ def _build_suppliers(
                 "cik": supplier.cik,
                 "country_iso": country,
                 "category": supplier.category,
-                "site_lat": round(lat + float(rng.normal(0, 0.7)), 4),
-                "site_lon": round(lon + float(rng.normal(0, 0.7)), 4),
+                "site_lat": site_lat,
+                "site_lon": site_lon,
             }
         )
     return rows
@@ -311,7 +324,7 @@ def _base_prices(rng: np.random.Generator, parts: list[dict[str, Any]]) -> dict[
 
 
 def _late_probability(supplier_id: str, base: float, progress: float) -> float:
-    """Chance that a delivery is late; rises with `progress` (0..1) for the story-1 supplier."""
+    """Chance that a delivery is late; rises with `progress` (0..1) for the story-1a supplier."""
     if supplier_id == LATE_SUPPLIER_ID:
         return 0.08 + 0.47 * progress
     return base
@@ -446,7 +459,7 @@ def _build_contracts(
 def generate(
     today: date | None = None,
     seed: int = DEFAULT_SEED,
-    worsening_country: str = "CZ",
+    worsening_country: str = "FR",
     suppliers_file: Path | None = None,
 ) -> ErpData:
     """Generate all ERP tables for the last 18 months up to `today`.
@@ -557,7 +570,7 @@ def parse_args(argv: list[str]) -> Args:
     parser = argparse.ArgumentParser(description="Generate the synthetic ERP.")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--today", type=date.fromisoformat, default=date.today())
-    parser.add_argument("--worsening-country", default="CZ")
+    parser.add_argument("--worsening-country", default="FR")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT_DIR)
     ns = parser.parse_args(argv)
     return Args(ns.seed, ns.today, ns.worsening_country, ns.out)
