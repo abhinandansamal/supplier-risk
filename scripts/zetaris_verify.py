@@ -9,6 +9,7 @@ docs/data-contract.md. Exit codes: 0 ok, 1 a view failed, 2 skipped (key missing
 access yet). Never prints the key or Zetaris response bodies.
 """
 
+import argparse
 import asyncio
 import re
 import sys
@@ -135,5 +136,22 @@ async def main(settings: Settings | None = None) -> int:
     return EXIT_FAILED if failures else EXIT_OK
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line before any work, so --help only prints usage.
+
+    Args:
+        argv: Command line arguments, or None to use sys.argv.
+
+    Returns:
+        The parsed arguments (this script takes none).
+    """
+    parser = argparse.ArgumentParser(
+        description=(__doc__ or "").strip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
+    parse_args()
     sys.exit(asyncio.run(main()))

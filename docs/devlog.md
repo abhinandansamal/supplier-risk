@@ -205,6 +205,61 @@ Times are Europe/Berlin. Secrets are never written here.
   FR is the worsening country; stories 1a/1b on real data only; tag-named EDGAR tables and CREATE OR REPLACE
   views, never DROP; role descriptions only [A-Za-z0-9_.,-].
 
+## 2026-10-27: feat/tools-score (tools, snapshot cache, evidence, risk score v1)
+- What: the tool catalogue of architecture 6.3 (all but propose_action; weather_extremes answers "not assessed"),
+  the in-memory snapshot cache (app/tools/cache.py), EvidenceRecord/EvidenceLog, UserContext, and the
+  deterministic risk score v1 (app/score/). It warms at startup without blocking it (FastAPI lifespan), and
+  scripts/warm_cache.py does the same by hand. This resolves the Feature 5 caching TODO above: no request
+  reads SEC/Eurostat live any more.
+- SEC-045 fixed by design (decision 0004). Each of the 9 views is read whole with one constant
+  `SELECT <columns> FROM risk.<view>`, and rows are filtered in Python. Zetaris enforces column scope through the
+  role key; the tool layer enforces row scope (the buyer's category) from the session. SEC-047 fixed: an error
+  JSON with HTTP 200 is ZetarisBadResponse, never "0 rows".
+- Cache:
+  - Keyed by (role key, view); single flight.
+  - ERP: TTL 900 s, max stale 3600 s. SEC/Eurostat: TTL 6 h, max stale 24 h (user decision). Stale data is served
+    while one background refresh runs; after max staleness, `source_unavailable`.
+  - At most 2 loads at once (SNAPSHOT_MAX_CONCURRENCY), ERP first. Loads use ZETARIS_SNAPSHOT_TIMEOUT_SECONDS
+    (300 s). The client row cap is now 5,000; a full snapshot is refused as possibly truncated.
+- Live timings (svc_buyer/svc_risk, 2026-10-27): ERP views 2-17 s per load (ERP phase about 34 s for 11 loads,
+  2 at a time), v_supplier_revenue 33 s, v_country_indicators 147 s. Full warm-up of 14 snapshots: 183-319 s.
+- Score v1 decisions (user, 2026-10-27):
+  - Weights 25/25/20/15/15. Thresholds green < 35, amber 35-59, red >= 60, insufficient below 50 % coverage.
+  - Critical signals: any assessed component >= 80 is listed and never changes the rating
+    (e.g. "Amber · critical: delivery").
+  - Not assessed (lowers coverage): weather; private-supplier financials; financials for the buyer role;
+    SEC/Eurostat when unavailable.
+  - Sub-score scales are fixed in architecture 6.5. Weights and thresholds were not changed after seeing scores.
+- Scores on the fake (seed-42 ERP; real story facts for S0001/3/5 only), for the record, not tuned:
+  - S0003: 35.9, "Amber · coverage 85 % · critical: delivery". Delivery 100 (on-time 35 % vs 73 %), financial 0
+    (+7.1 %), country PL 37, concentration 0.
+  - S0005: 23.6, Green, coverage 85 %. Financial 35.3 (-7.1 %), country FR 66.3, delivery 0, concentration 12.1.
+  - S0009 (private): coverage 65 %. A buyer sees S0003 at coverage 65 %, with delivery still critical.
+- Tests (red first, then green): see docs/test-runs/2026-10-27-feat-tools-score.md. Unit + security (before the follow-up): 886
+  passed, 37 xfailed, coverage 98 %. Live Zetaris: warm-up 1/1 (183 s after the fixes), views 14/14.
+- Security (security-breaker): SEC-061..073, none Critical/High, no row-scope leak.
+  - Fixed test first: 062 (NULL revenue scored as a collapse), 063/064 (malformed or NaN cells; now checked at load
+    and dropped with a count), 065 (list ratings uncited), 068/069 (supplier names and part descriptions quoted as
+    untrusted, text capped at 2,000), 070, 071, 072, 073 (ERP keeps a slot), and the backoff part of 061.
+  - Open: 061 (request-time timeout and per-call deadline, agent feature), 066 (evidence aggregates for the claim
+    verifier), 067 (undelivered orders as late: a score rule change, needs a user decision and weights v2).
+- Follow-up decisions (user, 2026-10-27), tests first:
+  - SEC-067 fixed with score rules v2 (decision 0005, decided on principle before the new scores were computed).
+    An open order past its due date without a delivery counts as a late delivery (rate and trend), as of the
+    snapshot date. A supplier with overdue orders is always assessed. delivery_history uses the same rule.
+    Weights stay v1; RiskScore carries score_rules_version "v2".
+  - New results, exactly as computed (seed-42 fake, snapshot 2026-10-27), not adjusted:
+    - S0003: 35.9, "Amber · coverage 85 % · critical: delivery". Delivery 100 (on-time 32 % over 57, of which
+      6 overdue undelivered, vs 73 %), concentration 0, financial 0 (+7.1 %), country PL 37.0.
+    - S0005: 25.0 (was 23.6), "Green · coverage 85 %". Delivery 4.8 (on-time 92 % over 39, 2 overdue
+      undelivered, vs 90 %), concentration 12.1, financial 35.3 (-7.1 %), country FR 66.3.
+  - Every script in scripts/ now parses its command line with argparse first (erp_up.sh: -h/--help), so --help
+    prints usage and does no work; test_scripts_help.py covers all scripts automatically.
+  - SEC-066 stays open for Feature 9 (claim verifier), the rest of SEC-061 for Feature 7.
+  - Unit + security: 900 passed, 36 xfailed, coverage 98 %. The live warm-up was not re-run (not needed).
+- Mistake noted: a `scripts/warm_cache.py --help` call ran a real warm-up (the script has no argument parsing). It
+  was read-only (SELECT with the role keys) and stopped by hand; its log gave the per-load timings above.
+
 ## Sponsor feedback
 - Zetaris (2026-10-27, SEC-044): the SQL Editor History keeps `CREATE DATASOURCE` statements in plain text,
   including the JDBC password. Suggestion: redact `password "..."` options in the history (and in audit logs), or

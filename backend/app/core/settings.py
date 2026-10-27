@@ -9,7 +9,14 @@ from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import unquote, urlsplit
 
-from pydantic import Field, SecretStr, StringConstraints, ValidationError, field_validator
+from pydantic import (
+    Field,
+    SecretStr,
+    StringConstraints,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -108,7 +115,12 @@ class Settings(BaseSettings):
         context_service_url: URL of the World Model / H-MEM service.
         erp_database_url: ERP database URL (contains a password).
         app_database_url: Application database URL (contains a password).
-        tool_cache_ttl_seconds: Time to live of the tool-result cache.
+        tool_cache_ttl_seconds: Time to live of ERP view snapshots (and the tool-result cache).
+        tool_cache_max_stale_seconds: Oldest ERP snapshot served while a refresh runs.
+        tool_cache_external_ttl_seconds: Time to live of SEC/Eurostat view snapshots.
+        tool_cache_external_max_stale_seconds: Oldest SEC/Eurostat snapshot served.
+        zetaris_snapshot_timeout_seconds: Zetaris timeout of one background snapshot load.
+        snapshot_max_concurrency: Most snapshot loads running at the same time.
         log_level: Minimum level written to the logs.
         log_dir: Directory for the rotating JSON log files.
         app_env: dev enables /docs; prod (the default) does not.
@@ -136,6 +148,13 @@ class Settings(BaseSettings):
     erp_database_url: SecretStr
     app_database_url: SecretStr
     tool_cache_ttl_seconds: Annotated[int, Field(ge=0, le=86400)] = 900
+    tool_cache_max_stale_seconds: Annotated[int, Field(ge=0, le=7 * 86400)] = 3600
+    # SEC/Eurostat views read live REST sources (minutes per load), so they refresh rarely.
+    tool_cache_external_ttl_seconds: Annotated[int, Field(ge=0, le=7 * 86400)] = 6 * 3600
+    tool_cache_external_max_stale_seconds: Annotated[int, Field(ge=0, le=14 * 86400)] = 24 * 3600
+    # Snapshot loads run in the background, so they may take longer than a request-time query.
+    zetaris_snapshot_timeout_seconds: Annotated[float, Field(gt=0, le=600)] = 300.0
+    snapshot_max_concurrency: Annotated[int, Field(ge=1, le=8)] = 2
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_dir: Path = Path("logs")
     # Security: the safe default is prod, so API docs are never exposed by accident.
@@ -189,6 +208,16 @@ class Settings(BaseSettings):
         if value.lower() in FORBIDDEN_MODEL_IDS:
             raise ValueError("must be an exact model id, not a routing mode")
         return value
+
+    @model_validator(mode="after")
+    def _stale_window_covers_ttl(self) -> "Settings":
+        if self.tool_cache_max_stale_seconds < self.tool_cache_ttl_seconds:
+            raise ValueError("tool_cache_max_stale_seconds must be >= tool_cache_ttl_seconds")
+        if self.tool_cache_external_max_stale_seconds < self.tool_cache_external_ttl_seconds:
+            raise ValueError(
+                "tool_cache_external_max_stale_seconds must be >= tool_cache_external_ttl_seconds"
+            )
+        return self
 
     def secret_values(self) -> list[str]:
         """Return the raw value of every SecretStr setting, for the log redaction filter.

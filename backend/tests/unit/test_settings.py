@@ -240,3 +240,30 @@ def test_runtime_token_must_be_visible_ascii(
 ) -> None:
     with pytest.raises(ValidationError):
         make_settings(meterless_runtime_token=token)
+
+
+def test_snapshot_cache_defaults(env: dict[str, str]) -> None:
+    settings = load_settings(env_file=None)
+    assert settings.tool_cache_max_stale_seconds == 3600
+    assert settings.tool_cache_external_ttl_seconds == 6 * 3600
+    assert settings.tool_cache_external_max_stale_seconds == 24 * 3600
+    assert settings.zetaris_snapshot_timeout_seconds == 300
+    assert settings.snapshot_max_concurrency == 2
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"tool_cache_ttl_seconds": 900, "tool_cache_max_stale_seconds": 600},
+        {"tool_cache_external_ttl_seconds": 7200, "tool_cache_external_max_stale_seconds": 3600},
+        {"zetaris_snapshot_timeout_seconds": 0},
+        {"zetaris_snapshot_timeout_seconds": 601},
+        {"snapshot_max_concurrency": 0},
+        {"snapshot_max_concurrency": 9},
+    ],
+)
+def test_snapshot_cache_settings_are_bounded(
+    make_settings: Callable[..., Settings], overrides: dict[str, int]
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(**overrides)

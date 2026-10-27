@@ -8,6 +8,7 @@ PASS/FAIL line per check. It makes at most 3 model calls (plus 2 status requests
 runtime), never prints the token or model output, and exits 1 if any check fails.
 """
 
+import argparse
 import asyncio
 import sys
 import uuid
@@ -190,5 +191,22 @@ async def main(settings: Settings | None = None, *, max_attempts: int = MAX_ATTE
     return 0 if all(result.passed for result in results) else 1
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line before any work, so --help only prints usage.
+
+    Args:
+        argv: Command line arguments, or None to use sys.argv.
+
+    Returns:
+        The parsed arguments (this script takes none).
+    """
+    parser = argparse.ArgumentParser(
+        description=(__doc__ or "").strip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
+    parse_args()
     sys.exit(asyncio.run(main()))

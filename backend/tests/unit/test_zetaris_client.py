@@ -162,12 +162,20 @@ async def test_cuts_rows_to_the_limit(
     assert result.rows == [["0"], ["1"], ["2"]]
 
 
-async def test_missing_data_means_no_rows(
+async def test_empty_data_list_means_no_rows(
+    zetaris: respx.MockRouter, make_zclient: Callable[..., ZetarisClient]
+) -> None:
+    zetaris.post(RUN_PATH).mock(return_value=httpx.Response(200, json={"data": []}))
+    result = await make_zclient().query(SQL)
+    assert result.rows == []
+
+
+async def test_null_data_is_a_bad_response_not_zero_rows(
     zetaris: respx.MockRouter, make_zclient: Callable[..., ZetarisClient]
 ) -> None:
     zetaris.post(RUN_PATH).mock(return_value=httpx.Response(200, json={"data": None}))
-    result = await make_zclient().query(SQL)
-    assert result.rows == []
+    with pytest.raises(ZetarisBadResponse):
+        await make_zclient().query(SQL)
 
 
 @pytest.mark.parametrize(

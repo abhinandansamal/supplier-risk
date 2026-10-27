@@ -158,12 +158,6 @@ def test_plain_http_to_a_remote_zetaris_is_refused(
 # --- red-team findings 2026-10-27 (docs/security-review.md); strict xfail until fixed ---------
 
 
-@pytest.mark.xfail(strict=True, reason="SEC-045")
-def test_client_runs_only_registered_templates_with_bound_parameters() -> None:
-    """Row scope (category) must be a validated, bound parameter, not pasted into SQL text."""
-    assert hasattr(ZetarisClient, "query_template")
-
-
 @pytest.mark.xfail(strict=True, reason="SEC-046")
 def test_runtime_settings_have_no_admin_key(make_settings: Callable[..., Settings]) -> None:
     assert not hasattr(make_settings(), "zetaris_admin_api_key")
@@ -178,9 +172,15 @@ def test_admin_key_with_surrounding_space_is_still_refused(
         ZetarisClient(settings, "risk_manager")
 
 
-@pytest.mark.xfail(strict=True, reason="SEC-047")
 @pytest.mark.parametrize(
-    "body", [{"error": "does not have privileges"}, {"data": None, "message": "not found"}]
+    "body",
+    [
+        {"error": "does not have privileges"},
+        {"data": None, "message": "not found"},
+        {},
+        {"data": [], "status": "FAILED"},
+        {"data": [["1"]], "error": "partial failure"},
+    ],
 )
 async def test_200_without_data_is_a_bad_response(
     router: respx.MockRouter, client: ZetarisClient, body: dict[str, object]

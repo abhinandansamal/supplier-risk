@@ -46,7 +46,8 @@ MAX_QUERY_TIMEOUT_SECONDS = 600.0
 MAX_ATTEMPTS = 2
 RETRY_DELAY_SECONDS = 1.0
 RETRY_AFTER_CAP_SECONDS = 10.0
-MAX_QUERY_ROWS = 1000
+# Snapshots read whole views (v_country_indicators has 1,686 rows); see app/tools/cache.py.
+MAX_QUERY_ROWS = 5000
 # Security: bounds on what we send and what we accept back.
 MAX_SQL_CHARS = 20_000
 MAX_RESPONSE_BYTES = 5_000_000
@@ -65,6 +66,8 @@ _UNAUTHORIZED = frozenset({401, 403})
 _READ_ONLY_SQL = re.compile(r"(?is)(SELECT|WITH)\s.*")
 _FORBIDDEN_SQL_TOKENS = (";", "--", "/*")
 _ASCII_SECONDS = re.compile(r"[0-9]{1,6}")
+_ERROR_KEYS = frozenset({"error", "errors", "message", "exception"})
+_FAILED_STATUSES = frozenset({"FAILED", "ERROR", "FAILURE"})
 
 
 @dataclass(frozen=True)
@@ -163,9 +166,10 @@ def _rows(content: bytes, limit: int) -> list[list[str | None]]:
         raise ZetarisBadResponse("response is not usable JSON", 200) from None
     if not isinstance(body, dict):
         raise ZetarisBadResponse("response is not a JSON object", 200)
+    # Security (SEC-047): an error JSON with HTTP 200 must never read as "0 rows" evidence.
+    if _ERROR_KEYS & body.keys() or str(body.get("status", "")).upper() in _FAILED_STATUSES:
+        raise ZetarisBadResponse("response reports an error", 200)
     data = body.get("data")
-    if data is None:
-        return []
     if not isinstance(data, list) or not all(isinstance(row, list) for row in data):
         raise ZetarisBadResponse("response data is not a list of rows", 200)
     return [[_cell(value) for value in row] for row in data[:limit]]
