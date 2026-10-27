@@ -31,6 +31,7 @@ FAKE_ENV: dict[str, str] = {
     "METERLESS_FAST_MODEL": "nvidia/nemotron-3.5-bolt-e4b",
     "METERLESS_EMBED_MODEL": "nvidia/nemotron-3.5-embed-1b",
     "CONTEXT_SERVICE_URL": "http://localhost:7070",
+    "CONTEXT_SERVICE_TOKEN": "cs-secret-VALUE-7777-0123456789abcdef",
     "ERP_DATABASE_URL": "postgresql://erp:erp-pass-VALUE-3333@localhost:5433/erp",
     "APP_DATABASE_URL": "postgresql://app:app-pass-VALUE-4444@localhost:5434/app",
 }
@@ -42,6 +43,7 @@ OPTIONAL_ENV = (
     "TOOL_CACHE_EXTERNAL_MAX_STALE_SECONDS",
     "ZETARIS_SNAPSHOT_TIMEOUT_SECONDS",
     "SNAPSHOT_MAX_CONCURRENCY",
+    "CONTEXT_SERVICE_TIMEOUT_SECONDS",
     "LOG_LEVEL",
     "LOG_DIR",
     "APP_ENV",

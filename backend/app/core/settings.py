@@ -30,6 +30,10 @@ FORBIDDEN_MODEL_IDS = frozenset({"meterless/auto", "meterless/fusion"})
 PLACEHOLDER_RUNTIME_TOKENS = frozenset({"rt-local"})
 # Visible ASCII only: the token goes into an HTTP header verbatim.
 RUNTIME_TOKEN_PATTERN = re.compile(r"[\x21-\x7e]{1,4096}")
+# Compose service name of the context service (plain http is fine on the internal network).
+CONTEXT_SERVICE_HOSTNAME = "context-service"
+# Same rule as the context service (context-service/src/config.ts): long, visible ASCII.
+CONTEXT_TOKEN_PATTERN = re.compile(r"[\x21-\x7e]{32,256}")
 # Nightshift runs on the host; from Docker it is host.docker.internal (still this machine).
 LOCAL_HTTP_HOSTS = frozenset({"localhost", "host.docker.internal"})
 # Pasted runtime URLs may point at an endpoint; these suffixes are cut back to the API root.
@@ -44,6 +48,38 @@ def is_local_host(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def check_context_service_url(raw: str) -> str:
+    """Return the context service URL without a trailing slash, if it is safe to send a token to.
+
+    Security: SEC-081. The internal token goes in a header on every call, so plain http is allowed
+    only for local hosts (loopback, localhost, host.docker.internal) and the Compose service name.
+
+    Args:
+        raw: The URL as configured.
+
+    Returns:
+        The URL without a trailing slash.
+
+    Raises:
+        ValueError: If the URL is not http(s), has credentials, a query or a fragment, an invalid
+            port, or uses plain http for a remote host.
+    """
+    text = raw.strip()
+    parts = urlsplit(text)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("must be an http(s) URL with a host")
+    if "@" in parts.netloc or parts.query or parts.fragment:
+        raise ValueError("must not contain credentials, a query or a fragment")
+    try:
+        parts.port  # noqa: B018  # parsing the port is the check
+    except ValueError:
+        raise ValueError("has an invalid port") from None
+    local = is_local_host(parts.hostname) or parts.hostname == CONTEXT_SERVICE_HOSTNAME
+    if parts.scheme == "http" and not local:
+        raise ValueError("must use https for a non-local context service")
+    return text.rstrip("/")
 
 
 def normalize_meterless_url(raw: str) -> str:
@@ -113,6 +149,8 @@ class Settings(BaseSettings):
         meterless_fast_model: Bolt model id (quick checks).
         meterless_embed_model: Embedding model id (H-MEM).
         context_service_url: URL of the World Model / H-MEM service.
+        context_service_token: Internal token for the context service (X-Internal-Token).
+        context_service_timeout_seconds: Deadline of one context service call.
         erp_database_url: ERP database URL (contains a password).
         app_database_url: Application database URL (contains a password).
         tool_cache_ttl_seconds: Time to live of ERP view snapshots (and the tool-result cache).
@@ -145,6 +183,9 @@ class Settings(BaseSettings):
     meterless_fast_model: NonEmptyStr
     meterless_embed_model: NonEmptyStr
     context_service_url: NonEmptyStr
+    # Optional: without it the agent runs without the case board (memory_unavailable).
+    context_service_token: SecretStr | None = None
+    context_service_timeout_seconds: Annotated[float, Field(gt=0, le=60)] = 5.0
     erp_database_url: SecretStr
     app_database_url: SecretStr
     tool_cache_ttl_seconds: Annotated[int, Field(ge=0, le=86400)] = 900
@@ -173,7 +214,11 @@ class Settings(BaseSettings):
         return value
 
     @field_validator(
-        "zetaris_admin_api_key", "zetaris_key_buyer", "zetaris_key_risk", mode="before"
+        "zetaris_admin_api_key",
+        "zetaris_key_buyer",
+        "zetaris_key_risk",
+        "context_service_token",
+        mode="before",
     )
     @classmethod
     def _blank_key_is_unset(cls, value: object) -> object:
@@ -183,6 +228,19 @@ class Settings(BaseSettings):
             if not raw.strip():
                 return None
         return value
+
+    @field_validator("context_service_token")
+    @classmethod
+    def _valid_context_token(cls, value: SecretStr | None) -> SecretStr | None:
+        # Security: CR/LF or spaces would break (or inject into) the header; short is guessable.
+        if value is not None and not CONTEXT_TOKEN_PATTERN.fullmatch(value.get_secret_value()):
+            raise ValueError("must be 32-256 visible ASCII characters")
+        return value
+
+    @field_validator("context_service_url")
+    @classmethod
+    def _safe_context_service_url(cls, value: str) -> str:
+        return check_context_service_url(value)
 
     @field_validator("meterless_base_url")
     @classmethod
