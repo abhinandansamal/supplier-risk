@@ -260,7 +260,55 @@ Times are Europe/Berlin. Secrets are never written here.
 - Mistake noted: a `scripts/warm_cache.py --help` call ran a real warm-up (the script has no argument parsing). It
   was read-only (SELECT with the role keys) and stopped by hand; its log gave the per-load timings above.
 
+## 2026-10-27: feat/world-model (Meterless World Model case board)
+- What:
+  - The Meterless World Model reference and its conformance suite, vendored unchanged in
+    context-service/vendor/world-model/ (Meterless@1742dec5, Apache-2.0, recorded in PRE_EXISTING.md).
+  - A small, strict TypeScript HTTP wrapper (Fastify + zod) in context-service/src:
+    - POST /cases/{id}/events: append-only, idempotent by event id.
+    - GET /cases/{id}/timeline, GET /entities/{id}, GET /health.
+    - X-Internal-Token auth, body and event caps, JSON logs (pino, same levels and redaction as the backend).
+  - A docker-compose service: internal network only, named volume, 256 MB, healthcheck.
+  - docker-compose.dev.yml publishes 127.0.0.1:7070 (user decision).
+  - The Python client app/memory/world_model.py. If the service is down, `record_event()` returns
+    `memory_unavailable` and the agent goes on.
+  - H-MEM is cut, and the agent wiring is Feature 7.
+- Decisions (decision 0006):
+  - One engine namespace (file) per case.
+  - At most one subject per kind per event (the engine closes an edge with the same from/type).
+  - The same event id with a different body is 409.
+  - Event kinds follow architecture §6.1 (not only the 5 in AGENTS.md), so Feature 7 needs no schema change.
+  - CONTEXT_SERVICE_TOKEN is optional in the backend.
+  - Corrupt-store recovery (user request): a case file that cannot be parsed or replayed is moved to
+    /data/corrupt-<timestamp>-<case>.json, with CRITICAL `memory_store_corrupt`, and the case starts empty.
+    The name carries the case id because there is one file per case.
+- Conformance: CI runs the vendored suite against the reference and against src/engine.ts (the module the
+  wrapper loads); both pass 8/8 with exit code 0. CI also checks the vendored files against a sha256 manifest
+  and against upstream at the recorded commit.
+- Tests:
+  - vitest: 77 (config, engine, board, HTTP, verify-vendor).
+  - pytest: client, settings, compose, and one integration test (two agents writing one case, the
+    Evaluator reading all 20 events).
+  - Unit 991 passed, coverage 98 %.
+- Security-breaker: SEC-074..086, one High.
+  - SEC-074: the engine rewrites its whole file synchronously about 20 times per append. With one shared
+    file, the default caps ran out of memory under the 160 MB heap.
+  - Fixed with per-case files plus byte caps (1 MB per case, 16 MB in total). Measured heap ≤ 57 MB.
+  - Residual: append p99 0.6–1.6 s and rare multi-second stalls from host disk I/O. The client's 5 s deadline
+    turns them into `memory_unavailable`. Re-measure in the load test.
+  - All Medium findings were fixed (ghost events after a failed write, an unreadable store wiped as
+    corrupt, `record_event` raising on a full board, client response cap). Lows fixed: 079–083, 085, 086.
+  - SEC-084 (reads are not scoped by role) is open for Feature 7.
+- Tooling notes:
+  - npm 10.9 (Homebrew Node 23.7) crashed resolving vitest's optional peers ("reading 'edgesOut'"). Installs
+    use npm 11 (`npx npm@11`), which Node 24 ships.
+  - vitest 4.1 is used because vitest 5 needs Node 22.12+/24. CI and the image run Node 24.
+
 ## Sponsor feedback
+- Meterless (2026-10-27): the World Model reference persists with a pretty-printed, synchronous, non-atomic
+  `writeFileSync` of the whole namespace after every mutation (about 20 per ingest of one record). A crash
+  mid-write truncates the store, and the cost grows with the store size. Suggestion: write a temp file and
+  rename it (atomic), write once per public call, and offer an append-only log file option.
 - Zetaris (2026-10-27, SEC-044): the SQL Editor History keeps `CREATE DATASOURCE` statements in plain text,
   including the JDBC password. Suggestion: redact `password "..."` options in the history (and in audit logs), or
   offer a secret reference in `CREATE DATASOURCE` so the password never appears in SQL text.
