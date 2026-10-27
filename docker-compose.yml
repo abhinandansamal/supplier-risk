@@ -1,0 +1,27 @@
+# Local services. erp-db is the synthetic ERP that Zetaris reads (JDBC via host.docker.internal:5433).
+# Passwords come from .env (ERP_DB_PASSWORD, ERP_READER_PASSWORD); compose refuses to start without them.
+services:
+  erp-db:
+    image: postgres:16
+    container_name: supplier-risk-erp-db
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2.0
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_DB: erp
+      POSTGRES_PASSWORD: ${ERP_DB_PASSWORD:?set ERP_DB_PASSWORD in .env}
+      ERP_READER_PASSWORD: ${ERP_READER_PASSWORD:?set ERP_READER_PASSWORD in .env}
+    volumes:
+      - erp_db_data:/var/lib/postgresql/data
+      - ./data_pipeline/synthetic_erp/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  erp_db_data:

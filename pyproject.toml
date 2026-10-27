@@ -3,13 +3,17 @@ name = "supplier-risk"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "faker>=40.43.0",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
     "langgraph>=1.2.17",
+    "numpy>=2.5.4",
     "openai>=3.37.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
     "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -22,6 +26,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "respx>=0.23.1",
     "ruff>=0.17.2",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.ruff]
@@ -46,11 +51,11 @@ max-complexity = 10
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["backend/app", "scripts"]
+files = ["backend/app", "scripts", "data_pipeline"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["backend", "."]
 asyncio_mode = "auto"
 markers = ["integration: needs local services"]
-addopts = "-ra --junitxml=reports/junit.xml --cov=backend/app --cov=scripts --cov-report=term-missing --cov-report=xml:reports/coverage.xml"
+addopts = "-ra --junitxml=reports/junit.xml --cov=backend/app --cov=scripts --cov=data_pipeline --cov-report=term-missing --cov-report=xml:reports/coverage.xml"

@@ -96,3 +96,27 @@ Times are Europe/Berlin. Secrets are never written here.
 - Follow-up: SEC-024 (own the limiter in the app lifespan, single API worker or a shared store), SEC-029 (budget for
   embeddings and a cap on HTTP attempts per investigation), confirm whether GET /v1/models counts against the NVIDIA quota.
 - cache-retry path not yet security-reviewed; covered in the red-team pass.
+
+## 2026-10-27: feat/erp-data (synthetic ERP)
+- What: suppliers.yaml (12 suppliers; 8 real US-listed with SEC-verified CIK and revenue tag, 4 fictional) with a
+  pydantic loader; deterministic generator (Faker + numpy, seed 42, `today` argument) for suppliers, parts,
+  part_sourcing, purchase_orders, deliveries, contracts, writing schema.sql, seed.sql and CSVs; docker-compose
+  erp-db (postgres:16, 127.0.0.1:5433, named volume, healthcheck, init scripts) with the SELECT-only role
+  zetaris_reader; scripts/erp_up.sh (generate/up/reset); scripts/verify_ciks.py; docs/data-contract.md and
+  docs/data-card.md.
+- Tests (red first, then green): suppliers.yaml schema, determinism (rows and files), foreign keys and primary keys,
+  value ranges, the four planted stories, compose and role scripts (static), SEC verification with respx, and
+  integration tests as zetaris_reader (counts; INSERT/UPDATE/DELETE/TRUNCATE/DROP/CREATE denied).
+  Unit + security: 468 passed, 22 xfailed, coverage 98 %. Integration (live erp-db): 9 passed, 2 xfailed.
+- Security review: no Critical or High. Open (Medium): SEC-031 reader can switch off read-only default, SEC-032 reader
+  can alter its own role, SEC-033 no statement timeout or connection limit, SEC-034 erp_up.sh --out copies stale
+  files, SEC-036 verify_ciks does not compare the tag with suppliers.yaml. Low: SEC-035, 037 to 043.
+- Decisions: public picks TI, ADI, Microchip, Dow, Celanese, Alcoa, Nucor, UPS all passed (none replaced); site
+  countries are synthetic; worsening_country (default CZ) overrides the yaml country of S0009; the DB admin user is
+  `erp` to match the existing ERP_DATABASE_URL example; data_pipeline added to mypy and coverage; the SEC User-Agent
+  is passed only through the environment.
+- Fixed before merge (test first): SEC-031 (lo_* functions and TEMP revoked from PUBLIC) and SEC-033 (role connection
+  limit and timeouts, container mem/cpu limits). The security-breaker agent now has the rule "never modify live
+  services, databases or roles" (it altered zetaris_reader during its probe).
+- Follow-up: SEC-034 and SEC-036 (small) before Zetaris registration; use a pooler or SQL guard for SEC-032;
+  confirm worsening country against Eurostat in the next feature.

@@ -18,3 +18,6 @@ logs/
 runs/
 .coverage
 coverage.xml
+data_pipeline/synthetic_erp/out/
+data_pipeline/synthetic_erp/init/01_schema.sql
+data_pipeline/synthetic_erp/init/02_seed.sql
