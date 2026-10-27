@@ -55,6 +55,9 @@ Times are Europe/Berlin. Secrets are never written here.
   headers, wider Bearer charset; patterns are keyword-anchored and bounded, checked linear on 1 MB input),
   SEC-013 (secret_values adds the percent-decoded URL password and strips whitespace), SEC-017 (.env.example
   ships APP_ENV=prod). Still open and recorded: SEC-012, 014, 015, 016, 018 (10 strict-xfail tests).
+- Deliberate choice (SEC-011): the Authorization and Cookie/Set-Cookie patterns redact the rest of the line (up to a
+  quote or newline), so text after them on the same line is over-redacted. Safer than leaking; a key=value secret
+  containing spaces is redacted only up to the first space.
 - Decisions: default APP_ENV is prod (docs off); readiness returns 503 with failed check names only; request ids must
   match ^[A-Za-z0-9._-]{1,64}$; body limit is enforced while streaming (HTTPException 413 so FastAPI re-raises it);
   ruff treats `app` as first-party; app code imports `app.*` (backend is on pythonpath).
