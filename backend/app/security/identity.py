@@ -8,8 +8,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.settings import Category
+
 Role = Literal["buyer", "risk_manager", "director", "auditor"]
-Category = Literal["electronics", "chemicals", "metals", "logistics"]
+__all__ = ["Category", "Role", "UserContext"]
 
 
 class UserContext(BaseModel):

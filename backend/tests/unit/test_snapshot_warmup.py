@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 import respx
@@ -56,8 +57,9 @@ def test_app_without_a_cache_does_not_warm_up(settings: Settings) -> None:
 
 
 def test_uvicorn_factory_wires_a_snapshot_cache(
-    monkeypatch: pytest.MonkeyPatch, settings: Settings
+    monkeypatch: pytest.MonkeyPatch, make_settings: Callable[..., Settings], tmp_path: Path
 ) -> None:
+    settings = make_settings(app_database_url=f"sqlite:///{tmp_path}/app.db")
     monkeypatch.setattr(main, "load_settings", lambda: settings)
     try:
         assert isinstance(main.create().state.snapshot_cache, SnapshotCache)

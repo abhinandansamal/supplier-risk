@@ -226,9 +226,66 @@ async def test_guard_self_check_failure_falls_back_to_the_rules(investigate: Inv
     assert "self_check_skipped" in [e.note for e in case.result.trace]
 
 
-async def test_suppliers_are_resolved_by_name_within_scope(investigate: Investigate) -> None:
-    case = await investigate(question="What is going on with Microchip and Analog Devices?")
-    assert case.result.suppliers == ["S0002", "S0003"]
+async def test_a_supplier_is_resolved_by_its_full_name_case_insensitive(
+    investigate: Investigate,
+) -> None:
+    case = await investigate(question="What is going on with microchip technology INCORPORATED?")
+    assert case.result.suppliers == ["S0003"]
+
+
+async def test_full_name_match_ignores_punctuation(investigate: Investigate) -> None:
+    case = await investigate(question="Why is Analog Devices Inc late?")
+    assert case.result.suppliers == ["S0002"]
+
+
+@pytest.mark.parametrize(
+    ("question", "reason"),
+    [
+        # SEC-098: a first word alone is no longer a match; the guard asks for the id.
+        ("Why is Microchip risky?", "no_supplier"),
+        (
+            "Compare Microchip Technology Incorporated and Analog Devices, Inc.",
+            "ambiguous_supplier",
+        ),
+    ],
+)
+async def test_names_that_do_not_match_exactly_one_supplier_ask_for_the_id(
+    investigate: Investigate, question: str, reason: str
+) -> None:
+    case = await investigate(question=question)
+    assert case.result.status == "rejected"
+    assert case.result.reason == reason
+    assert "supplier id" in (case.result.message or "")
+    assert case.llm.calls == []
+
+
+async def test_a_full_name_outside_the_buyer_scope_is_not_matched(
+    investigate: Investigate,
+) -> None:
+    buyer = UserContext(user_id="u-buy", role="buyer", category="electronics")
+    case = await investigate(question="Why is Celanese Corporation risky?", user=buyer)
+    assert case.result.reason == "no_supplier"
+
+
+async def test_caller_sets_the_id_and_receives_every_trace_event(
+    investigate: Investigate,
+) -> None:
+    seen: list[str] = []
+    case = await investigate(
+        investigation_id="inv-0123456789abcdef", on_event=lambda e: seen.append(e.action)
+    )
+    assert case.result.investigation_id == "inv-0123456789abcdef"
+    assert seen == [e.action for e in case.result.trace]
+
+
+async def test_a_failing_event_listener_never_fails_the_investigation(
+    investigate: Investigate,
+) -> None:
+    def broken(_: object) -> None:
+        raise RuntimeError("listener bug")
+
+    case = await investigate(on_event=broken)
+    assert case.result.status == "completed"
 
 
 async def test_deadline_ends_incomplete_with_what_was_checked(investigate: Investigate) -> None:
@@ -374,3 +431,8 @@ async def test_an_unexpected_error_ends_incomplete_and_is_logged(
     assert "bug" not in (case.result.message or "")
     failed = [r for r in caplog.records if r.__dict__.get("event") == "investigation_failed"]
     assert failed and failed[0].exc_info
+
+
+async def test_a_caller_id_that_could_be_a_path_is_refused(investigate: Investigate) -> None:
+    with pytest.raises(ValueError, match="investigation id"):
+        await investigate(investigation_id="../../etc/passwd")

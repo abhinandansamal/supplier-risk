@@ -1,6 +1,7 @@
 """Tests for app.core.settings: loading, defaults, secrets and startup errors."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -384,3 +385,73 @@ def test_context_service_url_accepts_local_http_and_https(
 ) -> None:
     monkeypatch.setenv("CONTEXT_SERVICE_URL", url)
     assert load_settings(env_file=None).context_service_url == url.rstrip("/")
+
+
+# --- API, login and queue (Feature 7b) ------------------------------------------------------
+
+
+def test_api_defaults(env: dict[str, str]) -> None:
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.demo_buyer_category == "electronics"
+    assert settings.retention_days == 30
+    assert settings.queue_max_length == 20
+    assert settings.investigations_per_user_per_hour == 10
+    assert settings.session_cookie_secure is False
+    assert settings.trace_dir == Path("runs")
+
+
+@pytest.mark.parametrize("unset", ["delete", "blank"])
+def test_jwt_secret_is_optional_and_blank_means_unset(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, unset: str
+) -> None:
+    if unset == "delete":
+        monkeypatch.delenv("JWT_SECRET")
+    else:
+        monkeypatch.setenv("JWT_SECRET", "   ")
+    assert Settings(_env_file=None).jwt_secret is None  # type: ignore[call-arg]
+
+
+def test_jwt_secret_must_be_long(env: dict[str, str], monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JWT_SECRET", "short-secret")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_blank_demo_password_disables_that_user(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEMO_DIRECTOR_PASSWORD", "")
+    assert Settings(_env_file=None).demo_director_password is None  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize("password", ["short", "replace-me", "REPLACE-ME"])
+def test_demo_passwords_must_be_real(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, password: str
+) -> None:
+    monkeypatch.setenv("DEMO_BUYER_PASSWORD", password)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("RETENTION_DAYS", "0"),
+        ("RETENTION_DAYS", "400"),
+        ("QUEUE_MAX_LENGTH", "0"),
+        ("INVESTIGATIONS_PER_USER_PER_HOUR", "0"),
+        ("DEMO_BUYER_CATEGORY", "toys"),
+    ],
+)
+def test_api_settings_are_bounded(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_new_secrets_are_redacted(env: dict[str, str]) -> None:
+    values = Settings(_env_file=None).secret_values()  # type: ignore[call-arg]
+    assert env["JWT_SECRET"] in values
+    assert env["DEMO_RISK_PASSWORD"] in values

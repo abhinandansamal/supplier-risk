@@ -35,6 +35,10 @@ FAKE_ENV: dict[str, str] = {
     "CONTEXT_SERVICE_TOKEN": "cs-secret-VALUE-7777-0123456789abcdef",
     "ERP_DATABASE_URL": "postgresql://erp:erp-pass-VALUE-3333@localhost:5433/erp",
     "APP_DATABASE_URL": "postgresql://app:app-pass-VALUE-4444@localhost:5434/app",
+    "JWT_SECRET": "jwt-secret-VALUE-8888-0123456789abcdef",
+    "DEMO_BUYER_PASSWORD": "buyer-pass-VALUE-9991",
+    "DEMO_RISK_PASSWORD": "risk-pass-VALUE-9992",
+    "DEMO_DIRECTOR_PASSWORD": "director-pass-VALUE-9993",
 }
 
 OPTIONAL_ENV = (
@@ -58,6 +62,14 @@ OPTIONAL_ENV = (
     "AGENT_MODEL_EVALUATOR",
     "AGENT_MODEL_RECOMMENDER",
     "AGENT_MODEL_WRITER",
+    "DEMO_BUYER_CATEGORY",
+    "SESSION_COOKIE_SECURE",
+    "RETENTION_DAYS",
+    "QUEUE_MAX_LENGTH",
+    "INVESTIGATIONS_PER_USER_PER_HOUR",
+    "TRACE_DIR",
+    "LANGCHAIN_TRACING_V2",
+    "LANGSMITH_TRACING",
 )
 
 

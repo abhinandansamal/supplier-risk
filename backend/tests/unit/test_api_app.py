@@ -143,7 +143,8 @@ def test_ready_runs_registered_checks(app: FastAPI) -> None:
     response = TestClient(app).get("/ready")
     assert response.status_code == 200
     assert calls == ["db"]
-    assert response.json()["checked"] == ["db"]
+    # app_db is registered by create_app itself.
+    assert response.json()["checked"] == ["app_db", "db"]
 
 
 def test_ready_returns_503_naming_only_failed_checks(app: FastAPI) -> None:
@@ -157,7 +158,7 @@ def test_ready_returns_503_naming_only_failed_checks(app: FastAPI) -> None:
     register_readiness_check(app, "zetaris", down)
     response = TestClient(app).get("/ready")
     assert response.status_code == 503
-    assert response.json() == {"status": "not_ready", "failed": ["zetaris"]}
+    assert response.json() == {"status": "not_ready", "failed": ["zetaris"], "cache": "off"}
 
 
 def test_ready_treats_exception_as_failed_without_leaking_it(

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supplier Risk Investigator</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div id="cache-banner" class="banner" role="status" hidden>
+    Warming the data cache. The first investigation may take a little longer.
+  </div>
+
+  <header class="top">
+    <h1>Supplier Risk Investigator</h1>
+    <div id="whoami" class="whoami" hidden>
+      <span id="whoami-text"></span>
+      <button type="button" id="logout" class="link">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-view" class="card login" aria-labelledby="login-title">
+      <h2 id="login-title">Demo login</h2>
+      <p class="muted">Three demo users. The role and data scope come from the login, never from the question.</p>
+      <form id="login-form">
+        <label for="login-user">User</label>
+        <select id="login-user" name="username">
+          <option value="buyer">buyer (electronics buyer)</option>
+          <option value="risk_manager">risk_manager</option>
+          <option value="director">director</option>
+        </select>
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+        <button type="submit">Log in</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <div id="app-view" class="layout" hidden>
+      <section class="card ask" aria-labelledby="ask-title">
+        <h2 id="ask-title">Ask why</h2>
+        <form id="ask-form">
+          <label for="question" class="sr-only">Question</label>
+          <textarea id="question" rows="3" maxlength="1000" required placeholder="Why is Microchip (S0003) risky?"></textarea>
+          <div class="examples">
+            <button type="button" class="example" data-question="Why is Microchip (S0003) risky?">S0003 Microchip</button>
+            <button type="button" class="example" data-question="Why is Celanese (S0005) risky?">S0005 Celanese</button>
+            <button type="button" class="example" data-question="Why is Ferrowerk Kessel (S0011) risky?">S0011 injection demo</button>
+          </div>
+          <button type="submit" id="ask-button">Investigate</button>
+          <p id="ask-error" class="error" role="alert"></p>
+        </form>
+        <h3>Your investigations</h3>
+        <ul id="history" class="history"></ul>
+      </section>
+
+      <section class="card timeline-card" aria-labelledby="timeline-title">
+        <h2 id="timeline-title">How we got here</h2>
+        <p id="run-status" class="status" aria-live="polite"></p>
+        <ol id="timeline" class="timeline" aria-live="polite"></ol>
+      </section>
+
+      <section class="card result" aria-labelledby="result-title">
+        <h2 id="result-title">Answer</h2>
+        <div id="result" class="result-body">
+          <p class="muted">Ask a question or pick an example.</p>
+        </div>
+      </section>
+
+      <aside id="evidence-panel" class="card evidence" aria-labelledby="evidence-title" hidden>
+        <div class="panel-head">
+          <h2 id="evidence-title">Evidence</h2>
+          <button type="button" id="evidence-close" class="link">Close</button>
+        </div>
+        <div id="evidence-body"></div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
