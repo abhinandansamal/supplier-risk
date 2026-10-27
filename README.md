@@ -136,6 +136,12 @@ The design assumes a prompt injection may succeed and limits what it can do:
 
 Privacy: [docs/privacy.md](docs/privacy.md). Production secrets: [docs/production-secrets.md](docs/production-secrets.md).
 
+## Known issues
+- **Each demo account should be used by one person at a time.** Six or more logins of the same account at
+  the same moment can lock it for 15 minutes (SEC-111, found by the [load test](docs/load-test-report.md)).
+- Other open security findings, each with a strict-xfail test, are listed in
+  [docs/security-review.md](docs/security-review.md).
+
 ## How this was built
 Built with Claude Code (decision 0002). Each feature followed the same workflow, set down in
 [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) and enforced by rules, a hook and a skill:
