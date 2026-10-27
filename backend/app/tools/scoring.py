@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 from statistics import fmean
 
+from app.evidence.models import FactValue
 from app.score import components
 from app.score.model import ComponentScore, RiskScore
 from app.score.scorer import combine
@@ -20,6 +21,11 @@ from app.tools.rows import full_years, latest_filing_facts, month_start, to_bool
 TOOL = "compute_risk_score"
 SCORE_MONTHS = 6
 WEATHER_GAP = "weather not assessed: NOAA data is not onboarded"
+
+
+def _rounded(value: float | None) -> float | None:
+    """Return a computed number rounded to 4 decimals for evidence facts (None stays None)."""
+    return round(value, 4) if value is not None else None
 
 
 def is_late(row: Row, as_of: date | None) -> bool | None:
@@ -99,10 +105,19 @@ async def _delivery(ctx: ToolContext, supplier_id: str) -> ComponentScore:
         "to": ctx.today.isoformat(),
         "overdue_as_of": as_of.isoformat(),
     }
-    evidence = [record(ctx, TOOL, snapshot, params, prev + last)]
     prev_rate = on_time_rate(prev, as_of) if len(prev) >= components.MIN_DELIVERIES else None
+    last_rate = on_time_rate(last, as_of)
+    facts: dict[str, FactValue] = {
+        "window_months": SCORE_MONTHS,
+        "deliveries_last_6m": len(last),
+        "overdue_last_6m": overdue_count(last),
+        "on_time_rate_last_6m": _rounded(last_rate),
+        "deliveries_prev_6m": len(prev),
+        "on_time_rate_prev_6m": _rounded(prev_rate),
+    }
+    evidence = [record(ctx, TOOL, snapshot, params, prev + last, facts=facts)]
     return components.delivery(
-        on_time_rate(last, as_of) or 0.0, len(last), prev_rate, evidence, overdue_count(last)
+        last_rate or 0.0, len(last), prev_rate, evidence, overdue_count(last)
     )
 
 
@@ -116,11 +131,17 @@ async def _concentration(ctx: ToolContext, supplier_id: str) -> ComponentScore:
     single_parts = {r["part_id"] for r in single}
     counts = {k: sum(1 for r in single if r["criticality"] == k) for k in ("A", "B", "C")}
     params = {"supplier_id": supplier_id}
-    evidence = [
-        record(ctx, TOOL, sourcing, params, single),
-        record(ctx, TOOL, orders_snapshot, params, orders),
-    ]
     on_single = sum(1 for r in orders if r["part_id"] in single_parts)
+    sourcing_facts: dict[str, FactValue] = {"single_source_parts": len(single)}
+    sourcing_facts.update({f"single_source_{k.lower()}": n for k, n in counts.items()})
+    order_facts: dict[str, FactValue] = {
+        "open_orders": len(orders),
+        "open_orders_single_source": on_single,
+    }
+    evidence = [
+        record(ctx, TOOL, sourcing, params, single, facts=sourcing_facts),
+        record(ctx, TOOL, orders_snapshot, params, orders, facts=order_facts),
+    ]
     return components.concentration(counts, len(orders), on_single, evidence)
 
 
@@ -152,8 +173,11 @@ async def _financial(
             "financial", reason, [record(ctx, TOOL, snapshot, params, years, note=reason)]
         )
     prev, last = years[-2], years[-1]
-    evidence = [record(ctx, TOOL, snapshot, params, [prev, last])]
     latest, previous = to_float(last["value_usd"]), to_float(prev["value_usd"])
+    facts: dict[str, FactValue] = {"revenue_latest_usd": latest, "revenue_previous_usd": previous}
+    if latest is not None and previous:
+        facts["yoy_change_pct"] = components.round_half_up((latest - previous) / previous * 100)
+    evidence = [record(ctx, TOOL, snapshot, params, [prev, last], facts=facts)]
     if latest is None or previous is None:
         # Unknown is never 0 (SEC-062): a NULL revenue must not read as a collapse.
         reason = "financials not assessed: revenue value missing in the latest filing"
@@ -174,13 +198,15 @@ async def _country(ctx: ToolContext, country_iso: str) -> ComponentScore:
         )
     unemployment = indicator_series(snapshot.rows, country_iso, "unemployment_rate")[-12:]
     hicp = indicator_series(snapshot.rows, country_iso, "hicp_annual_rate")[-12:]
-    evidence = [record(ctx, TOOL, snapshot, params, unemployment + hicp)]
-    return components.country(
-        country_iso,
-        six_month_change([to_float(r["value"]) or 0.0 for r in unemployment]),
-        six_month_change([to_float(r["value"]) or 0.0 for r in hicp]),
-        evidence,
-    )
+    unemployment_change = six_month_change([to_float(r["value"]) or 0.0 for r in unemployment])
+    hicp_change = six_month_change([to_float(r["value"]) or 0.0 for r in hicp])
+    facts: dict[str, FactValue] = {
+        "window_months": SCORE_MONTHS,
+        "unemployment_change_pp": _rounded(unemployment_change),
+        "hicp_change_pp": _rounded(hicp_change),
+    }
+    evidence = [record(ctx, TOOL, snapshot, params, unemployment + hicp, facts=facts)]
+    return components.country(country_iso, unemployment_change, hicp_change, evidence)
 
 
 async def compute_score(ctx: ToolContext, supplier_id: str) -> RiskScore:
