@@ -1,0 +1,6 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,start investigation,CatchResponseError('designed_429 queue_full'),816,2026-10-27T22:06:38Z,2026-10-27T22:07:31Z
+POST,start investigation,CatchResponseError('designed_429 rate_limited'),159,2026-10-27T22:07:06Z,2026-10-27T22:07:31Z
+SSE,open stream,Exception('designed_429 too_many_streams'),629,2026-10-27T22:06:40Z,2026-10-27T22:07:31Z
+POST,login,CatchResponseError('error conn HTTPConnectionClosed'),1,2026-10-27T22:06:49Z,2026-10-27T22:06:49Z
+POST,login,CatchResponseError('designed_429 too_many_attempts'),515,2026-10-27T22:06:32Z,2026-10-27T22:06:51Z

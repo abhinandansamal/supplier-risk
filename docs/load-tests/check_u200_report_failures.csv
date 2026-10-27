@@ -1,0 +1,5 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,start investigation,CatchResponseError('designed_429 queue_full'),128,2026-10-27T22:16:10Z,2026-10-27T22:17:00Z
+POST,start investigation,CatchResponseError('designed_429 rate_limited'),47,2026-10-27T22:16:21Z,2026-10-27T22:17:00Z
+SSE,open stream,Exception('designed_429 too_many_streams'),63,2026-10-27T22:16:16Z,2026-10-27T22:17:00Z
+POST,login,CatchResponseError('designed_429 too_many_attempts'),46,2026-10-27T22:16:01Z,2026-10-27T22:16:10Z

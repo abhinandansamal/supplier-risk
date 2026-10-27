@@ -1,0 +1,12 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,start investigation,CatchResponseError('designed_429 queue_full'),1705,2026-10-27T22:07:56Z,2026-10-27T22:08:53Z
+SSE,open stream,Exception('error conn ConnectTimeout'),5,2026-10-27T22:08:22Z,2026-10-27T22:08:25Z
+POST,start investigation,CatchResponseError('designed_429 rate_limited'),866,2026-10-27T22:07:57Z,2026-10-27T22:08:53Z
+SSE,open stream,Exception('designed_429 too_many_streams'),1718,2026-10-27T22:08:01Z,2026-10-27T22:08:53Z
+POST,login,CatchResponseError('error conn HTTPConnectionClosed'),1,2026-10-27T22:08:05Z,2026-10-27T22:08:05Z
+GET,list history,CatchResponseError('error conn RetriesExceeded'),38,2026-10-27T22:08:23Z,2026-10-27T22:08:28Z
+GET,poll status,CatchResponseError('error conn RetriesExceeded'),21,2026-10-27T22:08:23Z,2026-10-27T22:08:28Z
+POST,login,CatchResponseError('designed_429 too_many_attempts'),863,2026-10-27T22:07:53Z,2026-10-27T22:08:28Z
+GET,me,CatchResponseError('error conn RetriesExceeded'),7,2026-10-27T22:08:23Z,2026-10-27T22:08:28Z
+POST,start investigation,CatchResponseError('error conn RetriesExceeded'),5,2026-10-27T22:08:23Z,2026-10-27T22:08:25Z
+POST,login,CatchResponseError('error conn RetriesExceeded'),35,2026-10-27T22:08:23Z,2026-10-27T22:08:28Z
