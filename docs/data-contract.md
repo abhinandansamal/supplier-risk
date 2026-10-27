@@ -104,7 +104,11 @@ not an error). History starts at 2015-01 (`sinceTimePeriod`).
 
 ## App-facing views (container risk)
 
-Only these views are queried by the app. Buyer views never carry `unit_price_eur`,
+Only these views are queried by the app, each with one constant statement
+`SELECT <the columns below, in order> FROM risk.<view>` (registry: `backend/app/tools/views.py`;
+decision 0004). Rows are filtered in Python on a cached snapshot (TTL 900 s for ERP views, 6 h for
+v_supplier_revenue and v_country_indicators). Zetaris enforces column scope per role key; the app
+enforces row scope (the buyer's category). Buyer views never carry `unit_price_eur`,
 `order_value_eur`, `annual_value_eur` or `buyer_notes`. Rows and ranges below were measured on
 2026-10-27 with `40_risk_views_select.sql` (admin, setup); `scripts/zetaris_verify.py` repeats
 them with the svc_risk key once it exists. ERP tables in `erp_pg` match erp-db: suppliers 12,
@@ -124,6 +128,12 @@ parts 24, part_sourcing 50, purchase_orders 1603, deliveries 1555, contracts 12.
 
 Open orders due before the run date (from 2026-10-15) are overdue; one contract already ended
 (2026-09-28).
+
+**Response shape.** A good answer is HTTP 200 with `{"data": [[...], ...]}`, where `data` is a list
+(possibly empty) of rows given as string lists. The client treats anything else as `ZetarisBadResponse`,
+never as "0 rows" (SEC-047): `data` missing or null, or a body with `error`, `errors`, `message` or
+`exception`, or with `status` FAILED/ERROR/FAILURE. A refused grant answers 401/403 (`ZetarisUnauthorized`).
+A snapshot with 5,000 rows (the row limit) is refused as possibly truncated.
 
 | View | Columns | Grain | Keys | Roles | Feeds |
 | --- | --- | --- | --- | --- | --- |

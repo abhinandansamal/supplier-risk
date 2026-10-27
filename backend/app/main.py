@@ -7,12 +7,13 @@ from fastapi import FastAPI
 from app.api.app import create_app
 from app.core.logging import setup_logging
 from app.core.settings import Settings, SettingsError, load_settings
+from app.tools.cache import SnapshotCache
 
 logger = logging.getLogger(__name__)
 
 
 def create() -> FastAPI:
-    """Load settings, set up logging once and return the app.
+    """Load settings, set up logging once and return the app with a snapshot cache.
 
     Raises:
         SettingsError: If required settings are missing (logged as CRITICAL first).
@@ -24,4 +25,4 @@ def create() -> FastAPI:
         raise
     setup_logging(settings)
     logger.info("application starting", extra={"event": "startup", "app_env": settings.app_env})
-    return create_app(settings)
+    return create_app(settings, snapshot_cache=SnapshotCache(settings))

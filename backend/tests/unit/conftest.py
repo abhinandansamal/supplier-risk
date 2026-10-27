@@ -5,6 +5,12 @@ from pathlib import Path
 
 import pytest
 import respx
+from tests.fakes.tools import (  # noqa: F401 - fixtures for tool tests
+    fake,
+    make_ctx,
+    router,
+    snapshot_cache,
+)
 
 from app.core.settings import Settings
 from app.llm.client import MeterlessClient
@@ -29,7 +35,17 @@ FAKE_ENV: dict[str, str] = {
     "APP_DATABASE_URL": "postgresql://app:app-pass-VALUE-4444@localhost:5434/app",
 }
 
-OPTIONAL_ENV = ("TOOL_CACHE_TTL_SECONDS", "LOG_LEVEL", "LOG_DIR", "APP_ENV")
+OPTIONAL_ENV = (
+    "TOOL_CACHE_TTL_SECONDS",
+    "TOOL_CACHE_MAX_STALE_SECONDS",
+    "TOOL_CACHE_EXTERNAL_TTL_SECONDS",
+    "TOOL_CACHE_EXTERNAL_MAX_STALE_SECONDS",
+    "ZETARIS_SNAPSHOT_TIMEOUT_SECONDS",
+    "SNAPSHOT_MAX_CONCURRENCY",
+    "LOG_LEVEL",
+    "LOG_DIR",
+    "APP_ENV",
+)
 
 
 @pytest.fixture
@@ -75,8 +91,8 @@ class RecordingSleep:
 @pytest.fixture
 def meterless() -> Iterator[respx.MockRouter]:
     """Mock the Meterless runtime at the fake base URL; no network."""
-    with respx.mock(base_url=FAKE_ENV["METERLESS_BASE_URL"], assert_all_called=False) as router:
-        yield router
+    with respx.mock(base_url=FAKE_ENV["METERLESS_BASE_URL"], assert_all_called=False) as mock:
+        yield mock
 
 
 @pytest.fixture

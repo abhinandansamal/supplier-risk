@@ -29,11 +29,19 @@ reset() {
   up "$@"
 }
 
+usage() {
+  echo "usage: $0 {generate|up|reset} [generator args]"
+  echo "  generate  write schema, seed and CSVs and copy the SQL into the erp-db init folder"
+  echo "  up        generate, start erp-db and wait until it is healthy"
+  echo "  reset     delete the erp-db volume (asks first), then up"
+}
+
 command="${1:-}"
 shift || true
 case "$command" in
+  -h|--help) usage; exit 0 ;;
   generate) generate "$@" ;;
   up) up "$@" ;;
   reset) reset "$@" ;;
-  *) echo "usage: $0 {generate|up|reset} [generator args]" >&2; exit 2 ;;
+  *) usage >&2; exit 2 ;;
 esac

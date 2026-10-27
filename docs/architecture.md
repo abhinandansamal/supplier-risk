@@ -200,7 +200,9 @@ Scope fields (user, role, category) are never tool parameters; the tool layer ad
 | compute\_risk\_score | supplier id | none (uses collected evidence) | all |
 | propose\_action | kind, supplier id, claim ids | none (creates a proposal, never executes) | buyer, risk\_manager |
 
-Every tool validates input (Pydantic, enums, patterns such as `^S[0-9]{4}$`), fills a fixed SQL template with explicit columns and a LIMIT, sets a timeout, checks the cache, records an `EvidenceRecord` and returns compact JSON to the model.
+Every tool validates input (Pydantic, strict, `extra="forbid"`, enums, patterns such as `^S[0-9]{4}$`), reads whole-view snapshots from the snapshot cache, filters rows in Python, records an `EvidenceRecord` per view and returns compact JSON to the model. No tool input reaches SQL: each view is read with one constant `SELECT <columns> FROM risk.<view>` (decision 0004, SEC-045). Zetaris enforces column scope through the role key; the tool layer enforces row scope (the buyer's category) from the session. `weather_extremes` returns "not assessed" until NOAA is onboarded.
+
+**Snapshot cache** (`app/tools/cache.py`, in memory). One Zetaris query per (role key, view) loads the whole view, and concurrent misses share that one load. ERP views have a TTL of 900 s, and a stale copy is served while one background refresh runs, for up to 3600 s. SEC and Eurostat views have a TTL of 6 h and a max staleness of 24 h. Past max staleness the tools get `source_unavailable`. At most 2 loads run at a time. All views are warmed at startup without blocking it (ERP first), and `scripts/warm_cache.py` does the same from the command line. Evidence carries `snapshot_at`. Malformed cells are dropped at load; a failed load is remembered for 60 s; SEC/Eurostat loads leave one slot for ERP. ERP free text (buyer notes, supplier names, part descriptions) reaches the model only as quoted, capped `untrusted_text`.
 
 ### 6.4 Model routing through Nightshift
 
@@ -224,6 +226,20 @@ All calls go through one client: shared rate limiter (30/min), at most 2 concurr
 | Weather | Extreme-weather months near the site (not assessed if NOAA is cut) | 15 |
 
 Weights are a documented design choice, versioned (`weights_version`) and shown in the UI. They are never tuned to get a particular colour for a demo supplier; the score decides.
+
+Sub-scores (weights v1, score rules v2, `app/score/components.py`; 0-100, higher is riskier). Every RiskScore carries `weights_version` and `score_rules_version`:
+
+| Component | Sub-score | Not assessed when |
+| --- | --- | --- |
+| Delivery | level `clamp((0.95 - r6) / 0.45) x 80` + trend `clamp((r_prev - r6) / 0.20) x 20`, where r6 = on-time share of deliveries promised in the last 6 calendar months and r_prev = the 6 months before. Rules v2 (decision 0005): an open order past its promised date (as of the snapshot date) without a delivery counts as a late delivery; orders not yet due are not counted | fewer than 10 counted deliveries in the last 6 months and no overdue order |
+| Concentration | single-source parts with this supplier: A 50, B 25, C 10 points (capped at 70), + 30 x share of its open orders on single-source parts | never (no single-source parts = 0) |
+| Financial | `clamp(-change / 0.20) x 100`, where change = latest full fiscal year revenue vs the year before (latest filing per period); growth = 0 | private supplier (unknown, never 0); buyer role (financials hidden); SEC source unavailable; fewer than two full years |
+| Country | mean of `clamp(Δunemployment / 0.5 pp)` and `clamp(ΔHICP / 2.0 pp)` x 100, Δ = latest-6 minus previous-6 month average | no indicator; Eurostat source unavailable |
+| Weather | - | always, until NOAA is onboarded |
+
+**Total and rating.** The total is the weighted average over the assessed components only. Coverage is the share of weight assessed (e.g. "coverage 65 %" for a private supplier). Thresholds were decided before scoring: **green < 35, amber 35-59, red >= 60**, and **insufficient** when coverage is below 50 % (never green by default).
+
+**Critical signals.** Any assessed component with a sub-score >= 80 is listed in `RiskScore.critical_signals` (component and reason). This was decided on principle, not for a supplier. The rating stays what the arithmetic says; the UI shows both, e.g. "Amber · critical: delivery". Changing weights needs a new `weights_version`; changing how sub-scores are derived needs a new `score_rules_version` (v2: overdue undelivered orders count as late, decision 0005). Either change needs a decision record.
 
 ### 6.6 Prompts
 

@@ -11,6 +11,7 @@ revenue to another tag over time, and the old tag silently stops; SEC-036). It p
 rows for docs/data-contract.md. At most 2 requests/s.
 """
 
+import argparse
 import re
 import sys
 import time
@@ -202,18 +203,35 @@ def user_agent(env_file: str | None = ".env") -> str | None:
         return None
 
 
+def _parser() -> argparse.ArgumentParser:
+    """Return the command line parser (lookup <tickers...> | verify)."""
+    parser = argparse.ArgumentParser(
+        description=(__doc__ or "").strip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    lookup = commands.add_parser("lookup", help="look up CIKs for tickers")
+    lookup.add_argument("tickers", nargs="+", help="ticker symbols, e.g. TXN")
+    commands.add_parser("verify", help="verify the CIKs and revenue tags in suppliers.yaml")
+    return parser
+
+
 def main(argv: list[str]) -> int:
-    """Run `lookup <tickers...>` or `verify`; return the process exit code."""
+    """Run `lookup <tickers...>` or `verify`; return the process exit code.
+
+    The command line is parsed before any work, so --help and bad commands do nothing.
+    """
+    try:
+        args = _parser().parse_args(argv)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 2
     agent = user_agent()
     if not agent:
         return 2
-    if not argv or argv[0] not in {"lookup", "verify"}:
-        print("usage: verify_ciks.py lookup <ticker>... | verify", file=sys.stderr)
-        return 2
     with _client(agent) as client:
-        if argv[0] == "lookup":
+        if args.command == "lookup":
             throttle = _Throttle(MIN_INTERVAL_SECONDS)
-            for ticker in argv[1:]:
+            for ticker in args.tickers:
                 throttle.wait()
                 found = lookup_ticker(client, ticker)
                 print(f"{ticker}: {found if found else 'NOT FOUND'}")
