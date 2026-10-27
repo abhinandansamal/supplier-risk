@@ -1,8 +1,12 @@
 import { z } from "zod";
 
-/** Case board event kinds (architecture §6.1, plus decision_made for approvals). */
+/**
+ * Case board event kinds (architecture §6.1, plus decision_made for approvals and
+ * injection_detected for instruction-like text found in tool data).
+ */
 export const EVENT_KINDS = [
   "input_refused",
+  "injection_detected",
   "plan_created",
   "plan_revised",
   "task_dispatched",
