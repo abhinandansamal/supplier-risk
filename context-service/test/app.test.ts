@@ -96,6 +96,16 @@ describe("POST /cases/:id/events", () => {
     expect(again.json()).toMatchObject({ seq: 1, duplicate: true });
   });
 
+  it("accepts injection_detected events from a research agent", async () => {
+    const { app: a } = makeApp();
+    const res = await post(
+      a,
+      "inv-1",
+      event({ kind: "injection_detected", agent: "erp", data: { field: "buyer_notes" } }),
+    );
+    expect(res.statusCode).toBe(201);
+  });
+
   it("returns 409 for the same event id with a different body", async () => {
     const { app: a } = makeApp();
     await post(a, "inv-1", event());

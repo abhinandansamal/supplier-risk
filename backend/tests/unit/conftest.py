@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import respx
+from tests.fakes.agent import investigate  # noqa: F401 - fixture for agent tests
 from tests.fakes.tools import (  # noqa: F401 - fixtures for tool tests
     fake,
     make_ctx,
@@ -47,6 +48,16 @@ OPTIONAL_ENV = (
     "LOG_LEVEL",
     "LOG_DIR",
     "APP_ENV",
+    "INVESTIGATION_CALL_BUDGET",
+    "INVESTIGATION_DEADLINE_SECONDS",
+    "MODEL_CALL_TIMEOUT_SECONDS",
+    "TOOL_CALL_TIMEOUT_SECONDS",
+    "AGENT_MODEL_GUARD",
+    "AGENT_MODEL_PLANNER",
+    "AGENT_MODEL_RESEARCH",
+    "AGENT_MODEL_EVALUATOR",
+    "AGENT_MODEL_RECOMMENDER",
+    "AGENT_MODEL_WRITER",
 )
 
 

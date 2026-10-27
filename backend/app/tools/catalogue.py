@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from app.evidence.models import EvidenceLogFull
+from app.evidence.models import EvidenceLogFull, FactValue
 from app.tools import scoring
 from app.tools.context import (
     ToolContext,
@@ -88,7 +88,16 @@ async def list_my_suppliers(ctx: ToolContext, args: ListSuppliersArgs) -> ToolRe
         ),
         key=lambda r: r["supplier_id"] or "",
     )
-    evidence = [record(ctx, "list_my_suppliers", snapshot, args.model_dump(), rows)]
+    evidence = [
+        record(
+            ctx,
+            "list_my_suppliers",
+            snapshot,
+            args.model_dump(),
+            rows,
+            facts={"suppliers": len(rows)},
+        )
+    ]
     listed: list[dict[str, Any]] = [
         {
             "supplier_id": r["supplier_id"],
@@ -117,7 +126,13 @@ async def supplier_profile(ctx: ToolContext, args: SupplierArgs) -> ToolResult:
     """Return master data of one supplier; risk roles also get the contract."""
     row, snapshot = await supplier(ctx, args.supplier_id)
     params = args.model_dump()
-    evidence = [record(ctx, "supplier_profile", snapshot, params, [row])]
+    facts: dict[str, FactValue] = {
+        "site_lat": to_float(row["site_lat"]),
+        "site_lon": to_float(row["site_lon"]),
+    }
+    if ctx.key == "risk":
+        facts["annual_value_eur"] = to_float(row["annual_value_eur"])
+    evidence = [record(ctx, "supplier_profile", snapshot, params, [row], facts=facts)]
     profile: dict[str, Any] = {
         "supplier_id": row["supplier_id"],
         "name": _untrusted(row["name"]),
@@ -134,7 +149,12 @@ async def supplier_profile(ctx: ToolContext, args: SupplierArgs) -> ToolResult:
         profile["annual_value_eur"] = to_float(row["annual_value_eur"])
         contracts = await read(ctx, "v_contracts_full")
         found = scoped_rows(ctx, contracts, args.supplier_id)
-        evidence.append(record(ctx, "supplier_profile", contracts, params, found))
+        contract_facts: dict[str, FactValue] = (
+            {"annual_value_eur": to_float(found[0]["annual_value_eur"])} if found else {}
+        )
+        evidence.append(
+            record(ctx, "supplier_profile", contracts, params, found, facts=contract_facts)
+        )
         if found:
             data["contract"] = {
                 "annual_value_eur": to_float(found[0]["annual_value_eur"]),
@@ -157,20 +177,6 @@ async def open_orders_at_risk(ctx: ToolContext, args: SupplierArgs) -> ToolResul
         if to_bool(r["is_single_source"])
     }
     params = args.model_dump()
-    evidence = [
-        record(ctx, "open_orders_at_risk", snapshot, params, orders),
-        record(
-            ctx,
-            "open_orders_at_risk",
-            sourcing,
-            params,
-            [
-                r
-                for r in sourcing.rows
-                if r["supplier_id"] == args.supplier_id and r["part_id"] in single
-            ],
-        ),
-    ]
     listed = []
     overdue = due_soon = on_single = 0
     for r in orders:
@@ -193,18 +199,31 @@ async def open_orders_at_risk(ctx: ToolContext, args: SupplierArgs) -> ToolResul
         if ctx.key == "risk":
             item["order_value_eur"] = to_float(r["order_value_eur"])
         listed.append(item)
-    data: dict[str, Any] = {
+    facts: dict[str, FactValue] = {
         "open_orders": len(orders),
         "overdue": overdue,
         "due_within_30_days": due_soon,
         "on_single_source_parts": on_single,
-        "orders": listed[:MAX_LISTED_ORDERS],
     }
     if ctx.key == "risk":
-        data["total_value_eur"] = round(
+        facts["total_value_eur"] = round(
             sum(to_float(r["order_value_eur"]) or 0.0 for r in orders), 2
         )
-    return _ok("open_orders_at_risk", evidence, **data)
+    single_rows = [
+        r for r in sourcing.rows if r["supplier_id"] == args.supplier_id and r["part_id"] in single
+    ]
+    evidence = [
+        record(ctx, "open_orders_at_risk", snapshot, params, orders, facts=facts),
+        record(
+            ctx,
+            "open_orders_at_risk",
+            sourcing,
+            params,
+            single_rows,
+            facts={"single_source_parts": len(single_rows)},
+        ),
+    ]
+    return _ok("open_orders_at_risk", evidence, **facts, orders=listed[:MAX_LISTED_ORDERS])
 
 
 async def single_source_parts(ctx: ToolContext, args: SupplierArgs) -> ToolResult:
@@ -215,7 +234,10 @@ async def single_source_parts(ctx: ToolContext, args: SupplierArgs) -> ToolResul
         r for r in scoped_rows(ctx, snapshot, args.supplier_id) if to_bool(r["is_single_source"])
     ]
     rows.sort(key=lambda r: r["part_id"] or "")
-    evidence = [record(ctx, "single_source_parts", snapshot, args.model_dump(), rows)]
+    facts: dict[str, FactValue] = {"count": len(rows)}
+    for level in ("A", "B", "C"):
+        facts[f"criticality_{level.lower()}"] = sum(1 for r in rows if r["criticality"] == level)
+    evidence = [record(ctx, "single_source_parts", snapshot, args.model_dump(), rows, facts=facts)]
     parts = [
         {
             "part_id": r["part_id"],
@@ -243,8 +265,7 @@ async def delivery_history(ctx: ToolContext, args: SupplierMonthsArgs) -> ToolRe
     )
     rows.sort(key=lambda r: (r["promised_date"] or "", r["po_id"] or ""))
     params = {**args.model_dump(), "overdue_as_of": as_of.isoformat()}
-    evidence = [record(ctx, "delivery_history", snapshot, params, rows)]
-    months = []
+    months: list[dict[str, FactValue]] = []
     for back in range(args.months - 1, -1, -1):
         key = month_start(ctx.today, back).isoformat()[:7]
         in_month = [r for r in rows if (r["promised_date"] or "").startswith(key)]
@@ -259,6 +280,18 @@ async def delivery_history(ctx: ToolContext, args: SupplierMonthsArgs) -> ToolRe
             }
         )
     total_rate = scoring.on_time_rate(rows, as_of)
+    facts: dict[str, FactValue] = {
+        "window_months": args.months,
+        "deliveries": len(rows),
+        "late": sum(1 for r in rows if scoring.is_late(r, as_of)),
+        "overdue_undelivered": scoring.overdue_count(rows),
+        "on_time_rate": round(total_rate, 3) if total_rate is not None else None,
+    }
+    for month in months:
+        key = str(month["month"]).replace("-", "_")
+        facts[f"deliveries_{key}"] = month["deliveries"]
+        facts[f"on_time_rate_{key}"] = month["on_time_rate"]
+    evidence = [record(ctx, "delivery_history", snapshot, params, rows, facts=facts)]
     status: ToolStatus = "ok" if rows else "no_data"
     return ToolResult(
         tool="delivery_history",
@@ -268,9 +301,9 @@ async def delivery_history(ctx: ToolContext, args: SupplierMonthsArgs) -> ToolRe
             "from": start.isoformat(),
             "to": ctx.today.isoformat(),
             "overdue_as_of": as_of.isoformat(),
-            "deliveries": len(rows),
-            "overdue_undelivered": scoring.overdue_count(rows),
-            "on_time_rate": round(total_rate, 3) if total_rate is not None else None,
+            "deliveries": facts["deliveries"],
+            "overdue_undelivered": facts["overdue_undelivered"],
+            "on_time_rate": facts["on_time_rate"],
             "months": months,
         },
     )
@@ -289,7 +322,6 @@ async def financial_trend(ctx: ToolContext, args: FinancialArgs) -> ToolResult:
     revenue = await read(ctx, "v_supplier_revenue")
     years = full_years(latest_filing_facts(scoped_rows(ctx, revenue, args.supplier_id)))
     years = years[-args.years :]
-    evidence = [record(ctx, "financial_trend", revenue, params, years)]
     listed = [
         {
             "period_start": r["period_start"],
@@ -308,6 +340,10 @@ async def financial_trend(ctx: ToolContext, args: FinancialArgs) -> ToolResult:
         # Unknown is never 0 (SEC-062): no change is reported when a value is missing.
         if latest is not None and previous:
             change = round((latest / previous - 1) * 100, 2)
+    facts: dict[str, FactValue] = {"years": len(listed), "yoy_change_pct": change}
+    for item in listed:
+        facts[f"revenue_usd_fy{item['fiscal_year']}"] = item["value_usd"]
+    evidence = [record(ctx, "financial_trend", revenue, params, years, facts=facts)]
     status: ToolStatus = "ok" if listed else "no_data"
     return ToolResult(
         tool="financial_trend",
@@ -322,9 +358,15 @@ async def country_indicators(ctx: ToolContext, args: CountryArgs) -> ToolResult:
     snapshot = await read(ctx, "v_country_indicators")
     series = scoring.indicator_series(snapshot.rows, args.country_iso, args.indicator)
     series = series[-args.months :]
-    evidence = [record(ctx, "country_indicators", snapshot, args.model_dump(), series)]
     values = [to_float(r["value"]) or 0.0 for r in series]
     change = scoring.six_month_change(values)
+    facts: dict[str, FactValue] = {
+        "months": len(series),
+        "change_6m_pp": round(change, 4) if change is not None else None,
+        "latest_value": to_float(series[-1]["value"]) if series else None,
+        "latest_period": series[-1]["period"] if series else None,
+    }
+    evidence = [record(ctx, "country_indicators", snapshot, args.model_dump(), series, facts=facts)]
     return ToolResult(
         tool="country_indicators",
         status="ok" if series else "no_data",

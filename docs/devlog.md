@@ -304,6 +304,50 @@ Times are Europe/Berlin. Secrets are never written here.
     use npm 11 (`npx npm@11`), which Node 24 ships.
   - vitest 4.1 is used because vitest 5 needs Node 22.12+/24. CI and the image run Node 24.
 
+## 2026-10-27: feat/agent-graph (Feature 7a: agent graph, claim verifier, evidence facts)
+- What:
+  - LangGraph graph in backend/app/agent/: guard (rules + Bolt) -> planner (Ultra, Lightning fallback)
+    -> research (Lightning, one step per dimension) -> evaluator (at most 2 extra rounds) -> score ->
+    recommender (pending proposals only) -> writer (Ultra) -> verifier (Python, one rewrite) ->
+    escalation.
+  - Entry point `Investigator.run_investigation(user, question)`, plus scripts/investigate.py.
+  - Prompts are versioned in agent/prompts/*.v1.md.
+- Additions approved with the plan:
+  - injection_detected events in the trace and the World Model (field and evidence id only), with a
+    report note such as "1 buyer note contained instruction-like text and was ignored";
+  - an evaluator escalation returns the Python fallback report plus the gap list;
+  - each step's model route is a setting (`AGENT_MODEL_<STEP>`, defaults from §6.4).
+- SEC-066: `EvidenceRecord.facts` and `rows_digest`. Every tool and the score fill them. The verifier
+  checks numbers against facts, not sample rows.
+- SEC-061: tool calls are bounded by TOOL_CALL_TIMEOUT_SECONDS (20 s, also on a cold load). Model calls
+  are bounded by MODEL_CALL_TIMEOUT_SECONDS (240 s), capped by INVESTIGATION_DEADLINE_SECONDS (900 s).
+  A stop ends as "incomplete" with what was checked.
+- SEC-084 (agent side): the agent reads only its own case and drops events about suppliers outside the
+  resolved scope. `scope_entity_view()` is ready for Feature 7b.
+- Tests:
+  - Scripted fake LLM covering every graph path.
+  - Security tests: S0011 injection with an "obedient" model, invented numbers, buyer scope, tool-call and
+    proposal scope, plus the security-breaker's red-team file.
+  - Unit 1191 passed, coverage 97 %. context-service: vitest 78, conformance 8/8 x2.
+- Live (slow_live, docs/test-runs/2026-10-27-feat-agent-graph-live-S0003.json): S0003 as risk_manager.
+  - Result: completed, Amber with critical delivery, 10/15 model calls, a receipt on every call, 19
+    World Model events, investigation 121 s (cache warm-up 634 s).
+  - The first run failed at warm-up on a Zetaris 400 for one external view. The test now requires the ERP
+    views only.
+- Security-breaker: SEC-087..099.
+  - SEC-087 (High): verifier rounding let a fact below 0.5 back a written "0". Fixed: exact integers, no
+    false zero, at most 5 % error.
+  - Mediums fixed: unit-aware matching, supplier match, sign and direction, NFKC/number words/grouping,
+    rating synonyms, Python-only "missing", rationale checks, argument validation plus a last-resort catch.
+  - Lows: SEC-096 and SEC-097 fixed, SEC-098 in part. SEC-099 (detector variants) stays open.
+- Decisions: 0007 (agent graph, verifier rules, evidence facts). Choices approved with the plan:
+  - extra rounds go straight to research, without another planner call;
+  - an evaluator escalation skips the writer;
+  - the director gets no propose_action;
+  - H-MEM recall waits for its client.
+- Ops note: the context-service container must be rebuilt with the backend. An older service refuses
+  injection_detected, and the client treats that as a bug and raises.
+
 ## Sponsor feedback
 - Meterless (2026-10-27): the World Model reference persists with a pretty-printed, synchronous, non-atomic
   `writeFileSync` of the whole namespace after every mutation (about 20 per ingest of one record). A crash
@@ -323,3 +367,7 @@ Times are Europe/Berlin. Secrets are never written here.
   ^[A-Za-z0-9_.,-]+$.
 - Zetaris (2026-10-27): a COUNT over a view on 12 live Eurostat REST tables took 3.5 minutes; a per-table
   timing or a "live REST source" hint in the query plan would help to spot which source to cache.
+- Meterless Nightshift (2026-10-27, live agent run): a one-line Bolt (nemotron-3.5-bolt-e4b) guard check
+  took 20.7 s and a Lightning evaluator call 22.2 s, slower than the Ultra planner call (3.2 s). This may
+  be a model load. A load-state hint in the receipt (cold, warm) would help to tell queueing from
+  inference time.

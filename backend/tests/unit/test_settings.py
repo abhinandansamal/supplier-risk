@@ -270,6 +270,53 @@ def test_snapshot_cache_settings_are_bounded(
         make_settings(**overrides)
 
 
+def test_agent_defaults_follow_the_model_routing_table(env: dict[str, str]) -> None:
+    """Architecture §6.4: Bolt guards, Ultra plans/recommends/writes, Lightning researches."""
+    settings = load_settings(env_file=None)
+    assert settings.agent_step_models() == {
+        "guard": "fast",
+        "planner": "deep",
+        "research": "default",
+        "evaluator": "default",
+        "recommender": "deep",
+        "writer": "deep",
+    }
+    assert settings.investigation_call_budget == 15
+    assert settings.investigation_deadline_seconds == 900
+    assert settings.model_call_timeout_seconds == 240
+    assert settings.tool_call_timeout_seconds == 20
+
+
+def test_agent_step_model_can_be_changed(
+    env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGENT_MODEL_WRITER", "default")
+    assert load_settings(env_file=None).agent_step_models()["writer"] == "default"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"agent_model_planner": "meterless/auto"},
+        {"agent_model_guard": "nvidia/nemotron-3.5-bolt-e4b"},
+        {"investigation_call_budget": 0},
+        {"investigation_call_budget": 16},
+        {"investigation_deadline_seconds": 0},
+        {"investigation_deadline_seconds": 3601},
+        {"model_call_timeout_seconds": 0},
+        {"model_call_timeout_seconds": 601},
+        {"tool_call_timeout_seconds": 0},
+        {"tool_call_timeout_seconds": 301},
+    ],
+)
+def test_agent_settings_are_bounded(
+    make_settings: Callable[..., Settings], overrides: dict[str, object]
+) -> None:
+    """Step models are one of the three routes (the ids come from METERLESS_*_MODEL)."""
+    with pytest.raises(ValidationError):
+        make_settings(**overrides)
+
+
 @pytest.mark.parametrize("unset", ["delete", "empty", "blank"])
 def test_context_service_token_is_optional_and_empty_means_unset(
     env: dict[str, str], monkeypatch: pytest.MonkeyPatch, unset: str

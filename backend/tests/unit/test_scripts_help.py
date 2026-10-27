@@ -22,7 +22,7 @@ def _clean_env(tmp_path: Path) -> dict[str, str]:
 
 def test_every_script_is_covered() -> None:
     names = {p.name for p in SCRIPTS}
-    assert {"warm_cache.py", "check_llm.py", "erp_up.sh"} <= names
+    assert {"warm_cache.py", "check_llm.py", "erp_up.sh", "investigate.py"} <= names
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)

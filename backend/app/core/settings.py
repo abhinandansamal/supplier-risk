@@ -25,6 +25,10 @@ AppId = Annotated[
     str, StringConstraints(strip_whitespace=True, pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
 ]
 
+# Model route of an agent step; the exact ids come from METERLESS_*_MODEL (architecture 6.4).
+StepModel = Literal["default", "deep", "fast"]
+AGENT_STEPS = ("guard", "planner", "research", "evaluator", "recommender", "writer")
+
 # Routing modes, not models: we pin exact Nemotron ids (decision 0001).
 FORBIDDEN_MODEL_IDS = frozenset({"meterless/auto", "meterless/fusion"})
 PLACEHOLDER_RUNTIME_TOKENS = frozenset({"rt-local"})
@@ -159,6 +163,16 @@ class Settings(BaseSettings):
         tool_cache_external_max_stale_seconds: Oldest SEC/Eurostat snapshot served.
         zetaris_snapshot_timeout_seconds: Zetaris timeout of one background snapshot load.
         snapshot_max_concurrency: Most snapshot loads running at the same time.
+        investigation_call_budget: Model calls one investigation may make (NVIDIA free tier).
+        investigation_deadline_seconds: Wall time of one whole investigation.
+        model_call_timeout_seconds: Deadline of one agent model call (fallback included).
+        tool_call_timeout_seconds: Deadline of one tool call, also when it waits on a cold load.
+        agent_model_guard: Route of the guard self-check (fast = Bolt).
+        agent_model_planner: Route of the planner (deep = Ultra).
+        agent_model_research: Route of the research agents (default = Lightning).
+        agent_model_evaluator: Route of the evaluator (default = Lightning).
+        agent_model_recommender: Route of the recommender (deep = Ultra).
+        agent_model_writer: Route of the writer (deep = Ultra).
         log_level: Minimum level written to the logs.
         log_dir: Directory for the rotating JSON log files.
         app_env: dev enables /docs; prod (the default) does not.
@@ -196,6 +210,17 @@ class Settings(BaseSettings):
     # Snapshot loads run in the background, so they may take longer than a request-time query.
     zetaris_snapshot_timeout_seconds: Annotated[float, Field(gt=0, le=600)] = 300.0
     snapshot_max_concurrency: Annotated[int, Field(ge=1, le=8)] = 2
+    # Security: bounds per investigation (T8, SEC-061); 15 calls stay under 40 requests/minute.
+    investigation_call_budget: Annotated[int, Field(ge=1, le=15)] = 15
+    investigation_deadline_seconds: Annotated[float, Field(gt=0, le=3600)] = 900.0
+    model_call_timeout_seconds: Annotated[float, Field(gt=0, le=600)] = 240.0
+    tool_call_timeout_seconds: Annotated[float, Field(gt=0, le=300)] = 20.0
+    agent_model_guard: StepModel = "fast"
+    agent_model_planner: StepModel = "deep"
+    agent_model_research: StepModel = "default"
+    agent_model_evaluator: StepModel = "default"
+    agent_model_recommender: StepModel = "deep"
+    agent_model_writer: StepModel = "deep"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_dir: Path = Path("logs")
     # Security: the safe default is prod, so API docs are never exposed by accident.
@@ -276,6 +301,14 @@ class Settings(BaseSettings):
                 "tool_cache_external_max_stale_seconds must be >= tool_cache_external_ttl_seconds"
             )
         return self
+
+    def agent_step_models(self) -> dict[str, StepModel]:
+        """Return the model route of every agent step.
+
+        Returns:
+            Step name (guard, planner, research, evaluator, recommender, writer) to route.
+        """
+        return {step: getattr(self, f"agent_model_{step}") for step in AGENT_STEPS}
 
     def secret_values(self) -> list[str]:
         """Return the raw value of every SecretStr setting, for the log redaction filter.

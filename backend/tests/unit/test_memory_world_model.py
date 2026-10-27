@@ -75,6 +75,16 @@ def test_event_defaults_to_a_uuid_id_and_now_utc() -> None:
     assert datetime.now(UTC) - event.at < timedelta(seconds=5)
 
 
+def test_event_accepts_injection_detected_from_a_research_agent() -> None:
+    event = CaseEvent(
+        kind="injection_detected",
+        agent="erp",
+        summary="Instruction-like text in buyer_notes was ignored.",
+        data={"field": "buyer_notes"},
+    )
+    assert event.to_wire()["kind"] == "injection_detected"
+
+
 def test_event_serialises_time_as_utc_z() -> None:
     at = datetime(2026, 10, 27, 12, 0, tzinfo=timezone(timedelta(hours=2)))
     assert _event(at=at).to_wire()["at"] == "2026-10-27T10:00:00.000Z"

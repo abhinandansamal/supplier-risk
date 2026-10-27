@@ -55,8 +55,10 @@ _ERROR_CODE_PATTERN = re.compile(r"[a-z_]{1,40}")
 _DATA_KEY_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,39}")
 MAX_DATA_KEYS = 20
 
+# Same list as context-service/src/schema.ts (injection_detected: instruction-like tool data).
 EventKind = Literal[
     "input_refused",
+    "injection_detected",
     "plan_created",
     "plan_revised",
     "task_dispatched",

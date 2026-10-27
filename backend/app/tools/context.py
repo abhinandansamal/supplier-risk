@@ -11,7 +11,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.evidence.models import MAX_SAMPLE_ROWS, EvidenceLog, EvidenceRecord, EvidenceSource
+from app.evidence.models import (
+    MAX_SAMPLE_ROWS,
+    EvidenceLog,
+    EvidenceRecord,
+    EvidenceSource,
+    FactValue,
+    rows_digest,
+)
 from app.security.identity import UserContext
 from app.tools.cache import Row, Snapshot, SnapshotCache
 from app.tools.errors import SupplierNotFound, ToolForbidden
@@ -107,8 +114,22 @@ def record(
     params: dict[str, Any],
     rows: list[Row],
     note: str | None = None,
+    facts: dict[str, FactValue] | None = None,
 ) -> str:
-    """Add an evidence record for rows read from a snapshot and return its id."""
+    """Add an evidence record for rows read from a snapshot and return its id.
+
+    Args:
+        ctx: Tool context.
+        tool: Tool (or score step) that read the rows.
+        snapshot: Snapshot the rows come from.
+        params: Validated parameters.
+        rows: Every row the result rests on (samples are cut to MAX_SAMPLE_ROWS).
+        note: Short fixed text.
+        facts: Numbers computed from all rows (SEC-066), checked by the claim verifier.
+
+    Returns:
+        The evidence id.
+    """
     spec = VIEWS[snapshot.view]
     return ctx.evidence.add(
         EvidenceRecord(
@@ -124,6 +145,50 @@ def record(
             snapshot_at=snapshot.snapshot_at,
             retrieved_at=datetime.now(UTC),
             note=note,
+            facts=facts or {},
+            rows_digest=rows_digest(rows),
+        )
+    )
+
+
+def record_computed(
+    ctx: ToolContext,
+    tool: str,
+    params: dict[str, Any],
+    facts: dict[str, FactValue],
+    evidence_ids: list[str] | None = None,
+    note: str | None = None,
+) -> str:
+    """Add a record for numbers computed in Python from other evidence, and return its id.
+
+    Args:
+        ctx: Tool context.
+        tool: Step that computed the numbers (e.g. risk_score).
+        params: Inputs, e.g. the supplier id.
+        facts: The computed numbers.
+        evidence_ids: Records the numbers were computed from (kept in params).
+        note: Short fixed text.
+
+    Returns:
+        The evidence id.
+    """
+    if evidence_ids:
+        params = {**params, "from_evidence": sorted(evidence_ids)}
+    return ctx.evidence.add(
+        EvidenceRecord(
+            tool=tool,
+            source="computed",
+            view=None,
+            sql_template_id=None,
+            role=ctx.user.role,
+            params=params,
+            rows=[],
+            row_count=0,
+            zetaris_query_id=None,
+            snapshot_at=None,
+            retrieved_at=datetime.now(UTC),
+            note=note,
+            facts=facts,
         )
     )
 
