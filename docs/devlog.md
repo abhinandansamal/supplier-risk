@@ -348,6 +348,45 @@ Times are Europe/Berlin. Secrets are never written here.
 - Ops note: the context-service container must be rebuilt with the backend. An older service refuses
   injection_detected, and the client treats that as a bug and raises.
 
+## 2026-10-27: feat/api-ui (Feature 7b: API, queue, login, live trace, UI; SEC-098)
+- What:
+  - FastAPI under /api/v1:
+    - demo login for buyer (electronics), risk_manager and director: scrypt hashes from DEMO_*_PASSWORD;
+      an HS256 JWT in an httpOnly, SameSite=Strict cookie for 30 min; logout revokes it;
+    - investigations: 202 with id and queue position, list (own; director all), detail, an SSE live
+      trace, and DELETE (GDPR: result, proposals, decisions and the trace file);
+    - proposals: inbox, approve and reject. Only the decision is recorded.
+  - An in-process queue with one worker (SEC-024). A full queue and more than 10 investigations per
+    user per hour both get a friendly 429.
+  - SQLite through SQLAlchemy, with a retention purge at startup.
+  - A plain HTML/CSS/JS UI served by FastAPI:
+    - timeline: agent, model, receipt, latency, tools and evidence ids;
+    - answer: rating badge, score components, claims with clickable evidence ids and an evidence
+      panel, missing items, notes (including the injection notice), approve and reject;
+    - a cache-warming banner.
+  - Strict CSP; data is rendered with textContent only.
+  - scripts/run_app.sh: one worker on 127.0.0.1:8000.
+  - Startup refuses LangSmith tracing, a non-SQLite APP_DATABASE_URL and a missing JWT_SECRET.
+- SEC-098: without ids only the full supplier name counts (case-insensitive, whole words, in scope). No
+  match or several matches ask for the supplier id. The UI's examples carry the id.
+- Tests:
+  - 1362 unit and security tests pass, 46 strict xfails, 97 % coverage. The API is tested with a
+    fake investigator.
+  - Live API run for S0003: the first run escalated after 15/15 calls (four fast LLMBadResponse errors
+    in round-1 research). The second run completed with 14/15 calls and 40 live SSE trace events.
+    Details in docs/test-runs/2026-10-27-feat-api-ui.md.
+- Security-breaker: SEC-100..110, no Critical or High.
+  - Fixed test first: SEC-100 (parallel logins passed the throttle), SEC-101 (made-up names evicted a
+    lock), SEC-103 (SSE slot leak), SEC-104 (a store error left a run "running"), SEC-108 (a planted
+    short name captured a question).
+  - Open: SEC-105 (delete erases a decision; needs the audit log), SEC-106 (case board not erased; needs
+    a context-service delete), SEC-102, 107, 109 and 110.
+  - SEC-084 (API side) is closed. SEC-024 is mitigated by deployment.
+- Decisions: 0008 (one process and worker, SQLite instead of Postgres, evidence rows never sent to the
+  browser, decisions only, plain-JS UI).
+- Follow-up: round-1 research calls failed fast in both live runs, with no receipt. The extra round
+  then worked. To check with the agent and Nightshift; it can push a run to escalation at 15 calls.
+
 ## Sponsor feedback
 - Meterless (2026-10-27): the World Model reference persists with a pretty-printed, synchronous, non-atomic
   `writeFileSync` of the whole namespace after every mutation (about 20 per ingest of one record). A crash

@@ -1,0 +1,1642 @@
+{
+  "test": "test_s0003_through_the_api_streams_the_trace_and_cites_delivery",
+  "run_at": "2026-10-27T21:40:36.664859+00:00",
+  "question": "Why is Microchip (S0003) risky?",
+  "role": "risk_manager",
+  "warm_cache_ms": 404769,
+  "total_ms": 552175,
+  "sse_events": 43,
+  "sse_trace_events": 40,
+  "investigation": {
+    "id": "inv-ca7457cccb6c434d",
+    "question": "Why is Microchip (S0003) risky?",
+    "status": "completed",
+    "reason": null,
+    "owner": "risk_manager",
+    "created_at": "2026-10-27T21:38:09.580204+00:00",
+    "finished_at": "2026-10-27T21:40:36.519849+00:00",
+    "queue_position": null,
+    "model_calls": 14,
+    "message": null,
+    "result": {
+      "investigation_id": "inv-ca7457cccb6c434d",
+      "status": "completed",
+      "reason": null,
+      "message": null,
+      "role": "risk_manager",
+      "suppliers": [
+        "S0003"
+      ],
+      "plan": [
+        "delivery",
+        "concentration",
+        "financial",
+        "country",
+        "weather"
+      ],
+      "checked": [
+        "delivery",
+        "concentration",
+        "financial",
+        "country"
+      ],
+      "gaps": [],
+      "report": {
+        "headline": "S0003: Amber \u00b7 coverage 85 % \u00b7 critical: delivery",
+        "claims": [
+          {
+            "text": "Microchip (S0003) has an overall amber risk rating with a total score of 36.0 and 85% coverage; delivery is the only critical signal.",
+            "evidence_ids": [
+              "ev-e1fd32f666fc"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          },
+          {
+            "text": "Delivery performance is poor: on-time rate of 32% over the last 6 months across 57 deliveries with 6 overdue undelivered, down from 73% in the prior 6 months.",
+            "evidence_ids": [
+              "ev-12661d8997c3",
+              "ev-53633dd2caaf"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          },
+          {
+            "text": "Concentration risk is low: zero single-source parts (0 A, 0 B, 0 C) and 0 of 17 open orders are on single-source parts.",
+            "evidence_ids": [
+              "ev-a830fcaedf33",
+              "ev-bcc5769d2851",
+              "ev-9261e599fcdc"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          },
+          {
+            "text": "Financial health appears stable: revenue grew 7.1% year-over-year to $4.713\u202fbillion in the latest fiscal year from $4.402\u202fbillion in the previous fiscal year.",
+            "evidence_ids": [
+              "ev-1926b52b5221",
+              "ev-33fbe3340686"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          },
+          {
+            "text": "Country risk (Poland) is moderate: unemployment rose 0.20\u202fpp and HICP inflation rose 0.68\u202fpp over the latest 6 months versus the prior 6 months.",
+            "evidence_ids": [
+              "ev-a3649856cbfd",
+              "ev-3a36ad75bbf3"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          },
+          {
+            "text": "Weather risk could not be assessed because NOAA data is not onboarded.",
+            "evidence_ids": [
+              "ev-f62979405f17",
+              "ev-6e3dc67b3075"
+            ],
+            "kind": "fact",
+            "verified": true,
+            "problems": []
+          }
+        ],
+        "missing": [
+          "Weather not assessed: NOAA data is not onboarded"
+        ],
+        "notes": [],
+        "source": "writer"
+      },
+      "scores": [
+        {
+          "supplier_id": "S0003",
+          "total": 36.0,
+          "rating": "amber",
+          "coverage_pct": 85,
+          "components": [
+            {
+              "name": "delivery",
+              "weight": 25,
+              "assessed": true,
+              "value": 100.0,
+              "evidence_ids": [
+                "ev-12661d8997c3"
+              ],
+              "reason": "On-time rate 32 % over the last 6 months (57 deliveries, 6 overdue undelivered), 73 % in the 6 months before."
+            },
+            {
+              "name": "concentration",
+              "weight": 25,
+              "assessed": true,
+              "value": 0.0,
+              "evidence_ids": [
+                "ev-a830fcaedf33",
+                "ev-bcc5769d2851"
+              ],
+              "reason": "Single-source parts with this supplier: 0 A, 0 B, 0 C; 0 of 17 open orders on single-source parts."
+            },
+            {
+              "name": "financial",
+              "weight": 20,
+              "assessed": true,
+              "value": 0.0,
+              "evidence_ids": [
+                "ev-1926b52b5221"
+              ],
+              "reason": "Revenue 4,713.1 M USD (2025-04-01..2026-03-31) vs 4,401.6 M the year before (+7.1 %)."
+            },
+            {
+              "name": "country",
+              "weight": 15,
+              "assessed": true,
+              "value": 37.1,
+              "evidence_ids": [
+                "ev-a3649856cbfd"
+              ],
+              "reason": "PL, latest 6 vs previous 6 months: unemployment +0.20 pp, HICP +0.68 pp."
+            },
+            {
+              "name": "weather",
+              "weight": 15,
+              "assessed": false,
+              "value": null,
+              "evidence_ids": [
+                "ev-f62979405f17"
+              ],
+              "reason": "weather not assessed: NOAA data is not onboarded"
+            }
+          ],
+          "critical_signals": [
+            {
+              "component": "delivery",
+              "value": 100.0,
+              "reason": "On-time rate 32 % over the last 6 months (57 deliveries, 6 overdue undelivered), 73 % in the 6 months before."
+            }
+          ],
+          "weights_version": "v1",
+          "score_rules_version": "v2"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-2bdda1a1f4a8",
+          "tool": "list_my_suppliers",
+          "source": "erp",
+          "view": "v_suppliers_full",
+          "sql_template_id": "snapshot.v_suppliers_full.v1",
+          "role": "risk_manager",
+          "params": {
+            "risk_filter": null
+          },
+          "row_count": 12,
+          "zetaris_query_id": "3d9826e9-52c0-4564-8065-a05e93143440",
+          "snapshot_at": "2026-10-27T21:31:55.438115Z",
+          "retrieved_at": "2026-10-27T21:38:09.839247Z",
+          "note": null,
+          "facts": {
+            "suppliers": 12
+          },
+          "rows_digest": "27443a0c2b96bc936e8cb0034f660c8e6c66166eb8578c5d96b19aec2c1cf403"
+        },
+        {
+          "evidence_id": "ev-6e3dc67b3075",
+          "tool": "weather_extremes",
+          "source": "noaa",
+          "view": null,
+          "sql_template_id": null,
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003",
+            "months": 6
+          },
+          "row_count": 0,
+          "zetaris_query_id": null,
+          "snapshot_at": null,
+          "retrieved_at": "2026-10-27T21:38:11.392668Z",
+          "note": "weather not assessed: NOAA data is not onboarded",
+          "facts": {},
+          "rows_digest": null
+        },
+        {
+          "evidence_id": "ev-53633dd2caaf",
+          "tool": "delivery_history",
+          "source": "erp",
+          "view": "v_deliveries",
+          "sql_template_id": "snapshot.v_deliveries.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003",
+            "months": 6,
+            "overdue_as_of": "2026-10-27"
+          },
+          "row_count": 57,
+          "zetaris_query_id": "8ac93761-9dd4-406d-bca0-061535c04bae",
+          "snapshot_at": "2026-10-27T21:32:57.371198Z",
+          "retrieved_at": "2026-10-27T21:38:34.327084Z",
+          "note": null,
+          "facts": {
+            "window_months": 6,
+            "deliveries": 57,
+            "late": 39,
+            "overdue_undelivered": 6,
+            "on_time_rate": 0.316,
+            "deliveries_2026_05": 5,
+            "on_time_rate_2026_05": 0.4,
+            "deliveries_2026_06": 7,
+            "on_time_rate_2026_06": 0.286,
+            "deliveries_2026_07": 13,
+            "on_time_rate_2026_07": 0.385,
+            "deliveries_2026_08": 13,
+            "on_time_rate_2026_08": 0.385,
+            "deliveries_2026_09": 10,
+            "on_time_rate_2026_09": 0.2,
+            "deliveries_2026_10": 9,
+            "on_time_rate_2026_10": 0.222
+          },
+          "rows_digest": "ac79cf1918ba0a562eef6fb92f51cca7bcd4e794b6f6f214504321966a4dbc77"
+        },
+        {
+          "evidence_id": "ev-9261e599fcdc",
+          "tool": "single_source_parts",
+          "source": "erp",
+          "view": "v_part_sourcing",
+          "sql_template_id": "snapshot.v_part_sourcing.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003"
+          },
+          "row_count": 0,
+          "zetaris_query_id": "d50e85c5-eb48-4b97-a4e2-86b8075b10ce",
+          "snapshot_at": "2026-10-27T21:32:44.729274Z",
+          "retrieved_at": "2026-10-27T21:38:37.235123Z",
+          "note": null,
+          "facts": {
+            "count": 0,
+            "criticality_a": 0,
+            "criticality_b": 0,
+            "criticality_c": 0
+          },
+          "rows_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "evidence_id": "ev-33fbe3340686",
+          "tool": "financial_trend",
+          "source": "edgar",
+          "view": "v_supplier_revenue",
+          "sql_template_id": "snapshot.v_supplier_revenue.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003",
+            "metric": "revenue",
+            "years": 3
+          },
+          "row_count": 3,
+          "zetaris_query_id": "00f2588b-bf86-4359-a033-ef6ad52e21c4",
+          "snapshot_at": "2026-10-27T21:33:32.026359Z",
+          "retrieved_at": "2026-10-27T21:38:38.757072Z",
+          "note": null,
+          "facts": {
+            "years": 3,
+            "yoy_change_pct": 7.08,
+            "revenue_usd_fy2026": 4713100000.0
+          },
+          "rows_digest": "addd652a730073186a424bf2a8dbe98bfdef07b7fefe09cda96ae8849275b468"
+        },
+        {
+          "evidence_id": "ev-3a36ad75bbf3",
+          "tool": "country_indicators",
+          "source": "eurostat",
+          "view": "v_country_indicators",
+          "sql_template_id": "snapshot.v_country_indicators.v1",
+          "role": "risk_manager",
+          "params": {
+            "country_iso": "PL",
+            "indicator": "unemployment_rate",
+            "months": 12
+          },
+          "row_count": 12,
+          "zetaris_query_id": "912ee22b-55e0-4084-a1ae-504fb0d963f0",
+          "snapshot_at": "2026-10-27T21:38:07.195826Z",
+          "retrieved_at": "2026-10-27T21:38:42.427228Z",
+          "note": null,
+          "facts": {
+            "months": 12,
+            "change_6m_pp": 0.2,
+            "latest_value": 3.4,
+            "latest_period": "2026-08"
+          },
+          "rows_digest": "81e4f8ab0aa03e0f48c234b603c87898dd853cd14d34c9d70e446bb5eb8da295"
+        },
+        {
+          "evidence_id": "ev-f62979405f17",
+          "tool": "compute_risk_score",
+          "source": "noaa",
+          "view": null,
+          "sql_template_id": null,
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003"
+          },
+          "row_count": 0,
+          "zetaris_query_id": null,
+          "snapshot_at": null,
+          "retrieved_at": "2026-10-27T21:39:19.873203Z",
+          "note": "weather not assessed: NOAA data is not onboarded",
+          "facts": {},
+          "rows_digest": null
+        },
+        {
+          "evidence_id": "ev-12661d8997c3",
+          "tool": "compute_risk_score",
+          "source": "erp",
+          "view": "v_deliveries",
+          "sql_template_id": "snapshot.v_deliveries.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003",
+            "from": "2025-11-01",
+            "to": "2026-10-27",
+            "overdue_as_of": "2026-10-27"
+          },
+          "row_count": 121,
+          "zetaris_query_id": "8ac93761-9dd4-406d-bca0-061535c04bae",
+          "snapshot_at": "2026-10-27T21:32:57.371198Z",
+          "retrieved_at": "2026-10-27T21:39:19.875290Z",
+          "note": null,
+          "facts": {
+            "window_months": 6,
+            "deliveries_last_6m": 57,
+            "overdue_last_6m": 6,
+            "on_time_rate_last_6m": 0.3158,
+            "deliveries_prev_6m": 64,
+            "on_time_rate_prev_6m": 0.7344
+          },
+          "rows_digest": "85c6e4750bb528c7f843d4b71c56829a27ec0b449ac98aa3c862cd6189f09da8"
+        },
+        {
+          "evidence_id": "ev-a830fcaedf33",
+          "tool": "compute_risk_score",
+          "source": "erp",
+          "view": "v_part_sourcing",
+          "sql_template_id": "snapshot.v_part_sourcing.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003"
+          },
+          "row_count": 0,
+          "zetaris_query_id": "d50e85c5-eb48-4b97-a4e2-86b8075b10ce",
+          "snapshot_at": "2026-10-27T21:32:44.729274Z",
+          "retrieved_at": "2026-10-27T21:39:19.887789Z",
+          "note": null,
+          "facts": {
+            "single_source_parts": 0,
+            "single_source_a": 0,
+            "single_source_b": 0,
+            "single_source_c": 0
+          },
+          "rows_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "evidence_id": "ev-bcc5769d2851",
+          "tool": "compute_risk_score",
+          "source": "erp",
+          "view": "v_open_orders_full",
+          "sql_template_id": "snapshot.v_open_orders_full.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003"
+          },
+          "row_count": 17,
+          "zetaris_query_id": "ef8f12b9-2fc1-44fa-af92-2451e7a82084",
+          "snapshot_at": "2026-10-27T21:32:21.796224Z",
+          "retrieved_at": "2026-10-27T21:39:19.887858Z",
+          "note": null,
+          "facts": {
+            "open_orders": 17,
+            "open_orders_single_source": 0
+          },
+          "rows_digest": "f1553dec7745336a40c3935a046ddfbcfef6fb73ec49cb53ee9ff0a2dcbd6ecd"
+        },
+        {
+          "evidence_id": "ev-1926b52b5221",
+          "tool": "compute_risk_score",
+          "source": "edgar",
+          "view": "v_supplier_revenue",
+          "sql_template_id": "snapshot.v_supplier_revenue.v1",
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003"
+          },
+          "row_count": 2,
+          "zetaris_query_id": "00f2588b-bf86-4359-a033-ef6ad52e21c4",
+          "snapshot_at": "2026-10-27T21:33:32.026359Z",
+          "retrieved_at": "2026-10-27T21:39:19.890577Z",
+          "note": null,
+          "facts": {
+            "revenue_latest_usd": 4713100000.0,
+            "revenue_previous_usd": 4401600000.0,
+            "yoy_change_pct": 7.1
+          },
+          "rows_digest": "f0c28ffac2783d516e9687462a5826b9d885d09506373ed72a97d76109976efe"
+        },
+        {
+          "evidence_id": "ev-a3649856cbfd",
+          "tool": "compute_risk_score",
+          "source": "eurostat",
+          "view": "v_country_indicators",
+          "sql_template_id": "snapshot.v_country_indicators.v1",
+          "role": "risk_manager",
+          "params": {
+            "country_iso": "PL"
+          },
+          "row_count": 24,
+          "zetaris_query_id": "912ee22b-55e0-4084-a1ae-504fb0d963f0",
+          "snapshot_at": "2026-10-27T21:38:07.195826Z",
+          "retrieved_at": "2026-10-27T21:39:19.891222Z",
+          "note": null,
+          "facts": {
+            "window_months": 6,
+            "unemployment_change_pp": 0.2,
+            "hicp_change_pp": 0.6833
+          },
+          "rows_digest": "e7966f4a33a6c9618e219453a8978ed5ef309aaf5e3f4cd3370d6e7d43389363"
+        },
+        {
+          "evidence_id": "ev-e1fd32f666fc",
+          "tool": "risk_score",
+          "source": "computed",
+          "view": null,
+          "sql_template_id": null,
+          "role": "risk_manager",
+          "params": {
+            "supplier_id": "S0003",
+            "from_evidence": [
+              "ev-12661d8997c3",
+              "ev-1926b52b5221",
+              "ev-a3649856cbfd",
+              "ev-a830fcaedf33",
+              "ev-bcc5769d2851",
+              "ev-f62979405f17"
+            ]
+          },
+          "row_count": 0,
+          "zetaris_query_id": null,
+          "snapshot_at": null,
+          "retrieved_at": "2026-10-27T21:39:19.893273Z",
+          "note": "weights v1, score rules v2",
+          "facts": {
+            "score_total": 36.0,
+            "coverage_pct": 85,
+            "rating": "amber",
+            "critical_signals": 1,
+            "delivery_score": 100.0,
+            "delivery_weight": 25,
+            "concentration_score": 0.0,
+            "concentration_weight": 25,
+            "financial_score": 0.0,
+            "financial_weight": 20,
+            "country_score": 37.1,
+            "country_weight": 15,
+            "weather_score": null,
+            "weather_weight": 15
+          },
+          "rows_digest": null
+        }
+      ],
+      "trace": [
+        {
+          "seq": 1,
+          "at": "2026-10-27T21:38:10.220312Z",
+          "agent": "guard",
+          "step": null,
+          "action": "model_call",
+          "model_route": "fast",
+          "model_requested": "nvidia/nemotron-3.5-bolt-e4b",
+          "routed_model": "nvidia/nemotron-3.5-bolt-e4b",
+          "receipt_id": "rcpt_req_ogvcpsv0",
+          "cache_status": "exact",
+          "from_cache": true,
+          "tokens": 17,
+          "latency_ms": 372,
+          "retries": 0,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 14,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 2,
+          "at": "2026-10-27T21:38:10.222223Z",
+          "agent": "guard",
+          "step": null,
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "accepted",
+          "budget_left": 14,
+          "prompt_version": null,
+          "note": "S0003",
+          "error_type": null
+        },
+        {
+          "seq": 3,
+          "at": "2026-10-27T21:38:10.257195Z",
+          "agent": "planner",
+          "step": null,
+          "action": "model_call",
+          "model_route": "deep",
+          "model_requested": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "receipt_id": "rcpt_req_edfbpgtm",
+          "cache_status": "exact",
+          "from_cache": true,
+          "tokens": 221,
+          "latency_ms": 33,
+          "retries": 0,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 13,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 4,
+          "at": "2026-10-27T21:38:10.561795Z",
+          "agent": "planner",
+          "step": null,
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "planned",
+          "budget_left": 13,
+          "prompt_version": null,
+          "note": "delivery,concentration,financial,country,weather",
+          "error_type": null
+        },
+        {
+          "seq": 5,
+          "at": "2026-10-27T21:38:10.690800Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call_failed",
+          "model_route": "default",
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": 118,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 12,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 6,
+          "at": "2026-10-27T21:38:10.691033Z",
+          "agent": "research",
+          "step": "delivery",
+          "action": "step_degraded",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 12,
+          "prompt_version": null,
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 7,
+          "at": "2026-10-27T21:38:10.823916Z",
+          "agent": "research",
+          "step": "delivery",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "gap",
+          "budget_left": 12,
+          "prompt_version": null,
+          "note": "tool_failed",
+          "error_type": null
+        },
+        {
+          "seq": 8,
+          "at": "2026-10-27T21:38:10.884841Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call_failed",
+          "model_route": "default",
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": 60,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 11,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 9,
+          "at": "2026-10-27T21:38:10.885054Z",
+          "agent": "research",
+          "step": "concentration",
+          "action": "step_degraded",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 11,
+          "prompt_version": null,
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 10,
+          "at": "2026-10-27T21:38:11.020290Z",
+          "agent": "research",
+          "step": "concentration",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "gap",
+          "budget_left": 11,
+          "prompt_version": null,
+          "note": "tool_failed",
+          "error_type": null
+        },
+        {
+          "seq": 11,
+          "at": "2026-10-27T21:38:11.194674Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call_failed",
+          "model_route": "default",
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": 174,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 10,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 12,
+          "at": "2026-10-27T21:38:11.195011Z",
+          "agent": "research",
+          "step": "financial",
+          "action": "step_degraded",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 10,
+          "prompt_version": null,
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 13,
+          "at": "2026-10-27T21:38:11.314889Z",
+          "agent": "research",
+          "step": "financial",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "gap",
+          "budget_left": 10,
+          "prompt_version": null,
+          "note": "tool_failed",
+          "error_type": null
+        },
+        {
+          "seq": 14,
+          "at": "2026-10-27T21:38:11.360815Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call_failed",
+          "model_route": "default",
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": 45,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 9,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 15,
+          "at": "2026-10-27T21:38:11.361601Z",
+          "agent": "research",
+          "step": "country",
+          "action": "step_degraded",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 9,
+          "prompt_version": null,
+          "note": null,
+          "error_type": "LLMBadResponse"
+        },
+        {
+          "seq": 16,
+          "at": "2026-10-27T21:38:11.391210Z",
+          "agent": "research",
+          "step": "country",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "gap",
+          "budget_left": 9,
+          "prompt_version": null,
+          "note": "tool_failed",
+          "error_type": null
+        },
+        {
+          "seq": 17,
+          "at": "2026-10-27T21:38:11.392724Z",
+          "agent": "research",
+          "step": "weather",
+          "action": "tool_call",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "weather_extremes"
+          ],
+          "evidence_ids": [
+            "ev-6e3dc67b3075"
+          ],
+          "verdict": "not_assessed",
+          "budget_left": 9,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 18,
+          "at": "2026-10-27T21:38:11.420923Z",
+          "agent": "research",
+          "step": "weather",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "gap",
+          "budget_left": 9,
+          "prompt_version": null,
+          "note": "not_assessed",
+          "error_type": null
+        },
+        {
+          "seq": 19,
+          "at": "2026-10-27T21:38:32.276466Z",
+          "agent": "evaluator",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_z1k7sye8",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 2934,
+          "latency_ms": 20830,
+          "retries": 0,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 8,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 20,
+          "at": "2026-10-27T21:38:32.323846Z",
+          "agent": "evaluator",
+          "step": "round_1",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "insufficient",
+          "budget_left": 8,
+          "prompt_version": null,
+          "note": "delivery:tool_failed,concentration:tool_failed,financial:tool_failed,country:tool_failed,weather:not_assessed",
+          "error_type": null
+        },
+        {
+          "seq": 21,
+          "at": "2026-10-27T21:38:34.302245Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_dmiim0tz",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 908,
+          "latency_ms": 1972,
+          "retries": 0,
+          "tools": [
+            "delivery_history",
+            "open_orders_at_risk"
+          ],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 7,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 22,
+          "at": "2026-10-27T21:38:34.327611Z",
+          "agent": "research",
+          "step": "delivery",
+          "action": "tool_call",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "delivery_history"
+          ],
+          "evidence_ids": [
+            "ev-53633dd2caaf"
+          ],
+          "verdict": "ok",
+          "budget_left": 7,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 23,
+          "at": "2026-10-27T21:38:34.362946Z",
+          "agent": "research",
+          "step": "delivery",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-53633dd2caaf"
+          ],
+          "verdict": "covered",
+          "budget_left": 7,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 24,
+          "at": "2026-10-27T21:38:37.232432Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_54y02910",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 1123,
+          "latency_ms": 2867,
+          "retries": 0,
+          "tools": [
+            "single_source_parts",
+            "open_orders_at_risk",
+            "supplier_profile"
+          ],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 6,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 25,
+          "at": "2026-10-27T21:38:37.235524Z",
+          "agent": "research",
+          "step": "concentration",
+          "action": "tool_call",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "single_source_parts"
+          ],
+          "evidence_ids": [
+            "ev-9261e599fcdc"
+          ],
+          "verdict": "ok",
+          "budget_left": 6,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 26,
+          "at": "2026-10-27T21:38:37.283973Z",
+          "agent": "research",
+          "step": "concentration",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-9261e599fcdc"
+          ],
+          "verdict": "covered",
+          "budget_left": 6,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 27,
+          "at": "2026-10-27T21:38:38.746051Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_wwcu7fpc",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 800,
+          "latency_ms": 1460,
+          "retries": 0,
+          "tools": [
+            "financial_trend"
+          ],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 5,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 28,
+          "at": "2026-10-27T21:38:38.757340Z",
+          "agent": "research",
+          "step": "financial",
+          "action": "tool_call",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "financial_trend"
+          ],
+          "evidence_ids": [
+            "ev-33fbe3340686"
+          ],
+          "verdict": "ok",
+          "budget_left": 5,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 29,
+          "at": "2026-10-27T21:38:38.788744Z",
+          "agent": "research",
+          "step": "financial",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-33fbe3340686"
+          ],
+          "verdict": "covered",
+          "budget_left": 5,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 30,
+          "at": "2026-10-27T21:38:42.422338Z",
+          "agent": "research",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_qwbo98ci",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 1108,
+          "latency_ms": 3631,
+          "retries": 0,
+          "tools": [
+            "country_indicators"
+          ],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 4,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 31,
+          "at": "2026-10-27T21:38:42.427551Z",
+          "agent": "research",
+          "step": "country",
+          "action": "tool_call",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "country_indicators"
+          ],
+          "evidence_ids": [
+            "ev-3a36ad75bbf3"
+          ],
+          "verdict": "ok",
+          "budget_left": 4,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 32,
+          "at": "2026-10-27T21:38:42.462944Z",
+          "agent": "research",
+          "step": "country",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-3a36ad75bbf3"
+          ],
+          "verdict": "covered",
+          "budget_left": 4,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 33,
+          "at": "2026-10-27T21:39:19.806102Z",
+          "agent": "evaluator",
+          "step": null,
+          "action": "model_call",
+          "model_route": "default",
+          "model_requested": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "receipt_id": "rcpt_req_1nezcb9f",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 4788,
+          "latency_ms": 37321,
+          "retries": 0,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 3,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 34,
+          "at": "2026-10-27T21:39:19.854648Z",
+          "agent": "evaluator",
+          "step": "round_2",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "sufficient",
+          "budget_left": 3,
+          "prompt_version": null,
+          "note": "weather:not_assessed",
+          "error_type": null
+        },
+        {
+          "seq": 35,
+          "at": "2026-10-27T21:39:19.905673Z",
+          "agent": "score",
+          "step": "S0003",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-e1fd32f666fc"
+          ],
+          "verdict": "amber",
+          "budget_left": 3,
+          "prompt_version": null,
+          "note": "delivery",
+          "error_type": null
+        },
+        {
+          "seq": 36,
+          "at": "2026-10-27T21:40:03.561867Z",
+          "agent": "recommender",
+          "step": null,
+          "action": "model_call",
+          "model_route": "deep",
+          "model_requested": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "receipt_id": "rcpt_req_jxjnasrp",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 1988,
+          "latency_ms": 43651,
+          "retries": 0,
+          "tools": [
+            "propose_action"
+          ],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 2,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 37,
+          "at": "2026-10-27T21:40:03.645728Z",
+          "agent": "recommender",
+          "step": null,
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [
+            "propose_action"
+          ],
+          "evidence_ids": [],
+          "verdict": "1_proposed",
+          "budget_left": 2,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 38,
+          "at": "2026-10-27T21:40:36.408517Z",
+          "agent": "writer",
+          "step": null,
+          "action": "model_call",
+          "model_route": "deep",
+          "model_requested": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "receipt_id": "rcpt_req_e0tc44kl",
+          "cache_status": "miss",
+          "from_cache": false,
+          "tokens": 6349,
+          "latency_ms": 32758,
+          "retries": 0,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": null,
+          "budget_left": 1,
+          "prompt_version": "v1",
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 39,
+          "at": "2026-10-27T21:40:36.412581Z",
+          "agent": "writer",
+          "step": "draft",
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [
+            "ev-12661d8997c3",
+            "ev-1926b52b5221",
+            "ev-33fbe3340686",
+            "ev-3a36ad75bbf3",
+            "ev-53633dd2caaf",
+            "ev-6e3dc67b3075",
+            "ev-9261e599fcdc",
+            "ev-a3649856cbfd",
+            "ev-a830fcaedf33",
+            "ev-bcc5769d2851",
+            "ev-e1fd32f666fc",
+            "ev-f62979405f17"
+          ],
+          "verdict": "6_claims",
+          "budget_left": 1,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        },
+        {
+          "seq": 40,
+          "at": "2026-10-27T21:40:36.471296Z",
+          "agent": "verifier",
+          "step": null,
+          "action": "step_done",
+          "model_route": null,
+          "model_requested": null,
+          "routed_model": null,
+          "receipt_id": null,
+          "cache_status": null,
+          "from_cache": null,
+          "tokens": null,
+          "latency_ms": null,
+          "retries": null,
+          "tools": [],
+          "evidence_ids": [],
+          "verdict": "passed",
+          "budget_left": 1,
+          "prompt_version": null,
+          "note": null,
+          "error_type": null
+        }
+      ],
+      "model_calls": 14,
+      "memory": "available",
+      "duration_ms": 146787,
+      "claims": [
+        {
+          "text": "Microchip (S0003) has an overall amber risk rating with a total score of 36.0 and 85% coverage; delivery is the only critical signal.",
+          "evidence_ids": [
+            "ev-e1fd32f666fc"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        },
+        {
+          "text": "Delivery performance is poor: on-time rate of 32% over the last 6 months across 57 deliveries with 6 overdue undelivered, down from 73% in the prior 6 months.",
+          "evidence_ids": [
+            "ev-12661d8997c3",
+            "ev-53633dd2caaf"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        },
+        {
+          "text": "Concentration risk is low: zero single-source parts (0 A, 0 B, 0 C) and 0 of 17 open orders are on single-source parts.",
+          "evidence_ids": [
+            "ev-a830fcaedf33",
+            "ev-bcc5769d2851",
+            "ev-9261e599fcdc"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        },
+        {
+          "text": "Financial health appears stable: revenue grew 7.1% year-over-year to $4.713\u202fbillion in the latest fiscal year from $4.402\u202fbillion in the previous fiscal year.",
+          "evidence_ids": [
+            "ev-1926b52b5221",
+            "ev-33fbe3340686"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        },
+        {
+          "text": "Country risk (Poland) is moderate: unemployment rose 0.20\u202fpp and HICP inflation rose 0.68\u202fpp over the latest 6 months versus the prior 6 months.",
+          "evidence_ids": [
+            "ev-a3649856cbfd",
+            "ev-3a36ad75bbf3"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        },
+        {
+          "text": "Weather risk could not be assessed because NOAA data is not onboarded.",
+          "evidence_ids": [
+            "ev-f62979405f17",
+            "ev-6e3dc67b3075"
+          ],
+          "kind": "fact",
+          "verified": true,
+          "problems": []
+        }
+      ],
+      "score": {
+        "supplier_id": "S0003",
+        "total": 36.0,
+        "rating": "amber",
+        "coverage_pct": 85,
+        "components": [
+          {
+            "name": "delivery",
+            "weight": 25,
+            "assessed": true,
+            "value": 100.0,
+            "evidence_ids": [
+              "ev-12661d8997c3"
+            ],
+            "reason": "On-time rate 32 % over the last 6 months (57 deliveries, 6 overdue undelivered), 73 % in the 6 months before."
+          },
+          {
+            "name": "concentration",
+            "weight": 25,
+            "assessed": true,
+            "value": 0.0,
+            "evidence_ids": [
+              "ev-a830fcaedf33",
+              "ev-bcc5769d2851"
+            ],
+            "reason": "Single-source parts with this supplier: 0 A, 0 B, 0 C; 0 of 17 open orders on single-source parts."
+          },
+          {
+            "name": "financial",
+            "weight": 20,
+            "assessed": true,
+            "value": 0.0,
+            "evidence_ids": [
+              "ev-1926b52b5221"
+            ],
+            "reason": "Revenue 4,713.1 M USD (2025-04-01..2026-03-31) vs 4,401.6 M the year before (+7.1 %)."
+          },
+          {
+            "name": "country",
+            "weight": 15,
+            "assessed": true,
+            "value": 37.1,
+            "evidence_ids": [
+              "ev-a3649856cbfd"
+            ],
+            "reason": "PL, latest 6 vs previous 6 months: unemployment +0.20 pp, HICP +0.68 pp."
+          },
+          {
+            "name": "weather",
+            "weight": 15,
+            "assessed": false,
+            "value": null,
+            "evidence_ids": [
+              "ev-f62979405f17"
+            ],
+            "reason": "weather not assessed: NOAA data is not onboarded"
+          }
+        ],
+        "critical_signals": [
+          {
+            "component": "delivery",
+            "value": 100.0,
+            "reason": "On-time rate 32 % over the last 6 months (57 deliveries, 6 overdue undelivered), 73 % in the 6 months before."
+          }
+        ],
+        "weights_version": "v1",
+        "score_rules_version": "v2"
+      }
+    },
+    "proposals": [
+      {
+        "action_id": "act-0877ccb504e1",
+        "investigation_id": "inv-ca7457cccb6c434d",
+        "kind": "supplier_review",
+        "supplier_id": "S0003",
+        "impact": "medium",
+        "status": "pending",
+        "evidence_ids": [
+          "ev-12661d8997c3"
+        ],
+        "rationale": "On-time delivery collapsed from 73% to 32% over the last 6 months (57 deliveries, 6 overdue undelivered); delivery is the critical signal driving the amber rating. A structured review is needed to diagnose root causes and agree a recovery plan.",
+        "decided_by": null,
+        "decided_at": null,
+        "comment": null
+      }
+    ]
+  }
+}
