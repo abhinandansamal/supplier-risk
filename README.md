@@ -22,7 +22,7 @@ The goal is to make supplier risk investigations more transparent, traceable, an
 
 **Watch the complete application walkthrough:**
 
-[![Supplier Risk Investigator | Explainable Multi-Agent AI System](https://img.youtube.com/vi/zaI_SsUVR88/maxresdefault.jpg)](https://youtu.be/zaI_SsUVR88)
+[![Supplier Risk Investigator Demo](https://img.youtube.com/vi/zaI_SsUVR88/maxresdefault.jpg?v=2)](https://youtu.be/zaI_SsUVR88)
 
 ▶️ [Watch Supplier Risk Investigator on YouTube](https://youtu.be/zaI_SsUVR88)
 
